@@ -324,9 +324,9 @@
   .note-toolbar button:hover { background: rgba(255,255,255,.9); }
   .note-text-preview {
     font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; cursor: pointer;
-    display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden;
+    max-height: 460px; overflow: hidden;
   }
-  .note-text-preview ul { margin: 4px 0; padding-left: 18px; }
+  .note-text-preview ul, .note-text-preview ol { margin: 4px 0; padding-left: 18px; }
   .note-text-preview a { color: inherit; text-decoration: underline; }
   .note-del { position: absolute; bottom: 8px; right: 8px; }
   .note-pin-btn { position: absolute; top: 6px; right: 6px; opacity: .5; }
@@ -363,11 +363,13 @@
     cursor: pointer; color: inherit; font-family: inherit;
   }
   .note-editor-toolbar button:hover { background: rgba(255,255,255,.85); }
+  .note-editor-toolbar button.active { background: rgba(0,0,0,.18); }
   .note-editor-body {
     font-family: 'Fraunces', Georgia, serif; font-size: 17px; line-height: 1.75;
     min-height: 280px; outline: none;
   }
-  .note-editor-body ul { margin: 10px 0; padding-left: 24px; }
+  .note-editor-body ul, .note-editor-body ol { margin: 10px 0; padding-left: 26px; }
+  .note-editor-body li { margin: 2px 0; }
   .note-editor-body a { color: inherit; text-decoration: underline; }
   .note-editor-body:empty::before { content: "Start writing…"; opacity: .45; }
 
@@ -506,11 +508,10 @@
 
   /* ---------------- Note colors ----------------
      Strawberry Matcha palette + the new Strawberry / Primrose Garden /
-     Pinktone / Lime Lollipop / Yucca White swatches. Colors are assigned by
-     a note's position in the currently-displayed order (not by id/date), so
-     as notes are added, deleted, or dragged around, neighboring cards are
-     guaranteed to differ — cycling through N>1 colors by index can never
-     repeat on two consecutive positions.
+     Pinktone / Lime Lollipop / Yucca White swatches. Each note is assigned
+     a color ONCE, at creation time (stored as note.colorIndex), and keeps
+     that color forever — reordering, adding, or deleting other notes never
+     changes an existing note's color.
   --------------------------------------------------- */
   var NOTE_PALETTE = [
     { bg: "var(--gold)",        border: "#EBC0C8", ink: "#73404A" },        // image 3 — Gold
@@ -526,7 +527,18 @@
     { bg: "var(--strawberry)",  border: "#E3B7BA", ink: "#38482D" },        // image 1 — Strawberry
     { bg: "var(--sage)",        border: "#899364", ink: "#FFFDFB" }         // image 3 — Sage
   ];
-  function noteColor(i) { return NOTE_PALETTE[i % NOTE_PALETTE.length]; }
+  var lastColorIndex = -1;
+  function nextColorIndex() {
+    // avoid repeating the immediately-preceding note's color
+    var idx;
+    do { idx = Math.floor(Math.random() * NOTE_PALETTE.length); } while (NOTE_PALETTE.length > 1 && idx === lastColorIndex);
+    lastColorIndex = idx;
+    return idx;
+  }
+  function noteColorFor(e) {
+    var idx = (typeof e.colorIndex === "number") ? e.colorIndex : 0;
+    return NOTE_PALETTE[idx % NOTE_PALETTE.length];
+  }
 
   /* deterministic per-note tilt so the board reads like a corkboard, not
      a re-randomizing mess on every render */
@@ -980,6 +992,15 @@
         });
       }
 
+      // One-time migration: assign a permanent colorIndex to any existing
+      // notes that predate the fixed-color scheme, so their color no longer
+      // shifts as the board changes.
+      state.entries.forEach(function (e) {
+        if (e && e.type === "note" && typeof e.colorIndex !== "number") {
+          e.colorIndex = nextColorIndex();
+        }
+      });
+
       if (configReady()) persistEntries();
       updateSyncStatus(configReady() ? "idle" : "off");
       renderNav();
@@ -1262,12 +1283,11 @@
 
   /* ---------------- Notes ----------------
      A corkboard of sticky notes, separate from the Timeline. Cards in the
-     grid are a read-only preview (clamped, tilted, masonry-packed so a
-     one-word note doesn't stretch to match its neighbor). Clicking a note
-     opens it in a full-page doc-style editor — generous margins, serif
-     type, a real writing surface — where the actual editing happens.
-     Colors cycle through the palette by display position, so no two
-     neighboring cards ever match.
+     grid are a read-only preview, sized to fully show their content (no
+     clamping — a longer note simply gets a taller card in the masonry
+     layout), tilted and packed like a corkboard. Clicking a note opens it
+     in a full-page doc-style editor. Each note's color is fixed at
+     creation time and never changes as the board is reordered or edited.
   --------------------------------------------------------------------- */
   function noteSortValue(e) {
     return e.sortIndex != null ? e.sortIndex : (e.updatedAt || 0);
@@ -1303,7 +1323,7 @@
   function viewNotes() {
     var sortDir = state._noteSort || "desc";
     var notes = sortedNotes();
-    var cards = notes.map(function (n, i) { return renderNoteCard(n, i); }).join("");
+    var cards = notes.map(function (n) { return renderNoteCard(n); }).join("");
 
     return (
       '<div class="view-head"><h2 class="display">Notes</h2><p>Click into a note to edit it. Drag from the grip on the left to reorder.</p></div>' +
@@ -1325,8 +1345,8 @@
   var ICON_PIN = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 3l5 5-4 4 1 6-6-4-6 6-1-1 6-6-4-6 6 1 4-4z"/></svg>';
   var ICON_PIN_OUTLINE = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M16 3l5 5-4 4 1 6-6-4-6 6-1-1 6-6-4-6 6 1 4-4z"/></svg>';
 
-  function renderNoteCard(e, idx) {
-    var c = noteColor(idx);
+  function renderNoteCard(e) {
+    var c = noteColorFor(e);
     var rot = noteRotation(e.id);
     var html = e.html != null ? e.html : esc(e.text || "");
     var style = 'background:' + c.bg + ';border-color:' + c.border + ';color:' + c.ink + ';transform:rotate(' + rot + 'deg);';
@@ -1343,14 +1363,13 @@
   }
 
   /* the doc-style editor — a real writing surface for the note that's
-     currently open, in the same color as its card so it still feels like
-     "that" note, just unfolded to full size */
+     currently open, in the same fixed color as its card so it still feels
+     like "that" note, just unfolded to full size */
   function renderNoteEditor() {
     var id = state._editingNoteId;
     var n = state.entries.find(function (x) { return x.id === id; });
     if (!n) return '';
-    var idx = sortedNotes().findIndex(function (x) { return x.id === id; });
-    var c = noteColor(idx === -1 ? 0 : idx);
+    var c = noteColorFor(n);
     var ro = state._readOnly;
     var html = n.html != null ? n.html : esc(n.text || "");
     return (
@@ -1362,9 +1381,12 @@
             : '<input type="date" class="note-editor-date-input" id="editorDate" value="' + esc(n.date || "") + '" style="color:' + c.ink + '">') +
           (ro ? '' :
             '<div class="note-editor-toolbar" style="color:' + c.ink + '">' +
-              '<button type="button" data-efmt="bold" title="Bold"><b>B</b></button>' +
+              '<button type="button" data-efmt="bold" title="Bold (Ctrl+B)"><b>B</b></button>' +
+              '<button type="button" data-efmt="italic" title="Italic (Ctrl+I)"><i>i</i></button>' +
               '<button type="button" data-efmt="list" title="Bulleted list">&#8226;</button>' +
+              '<button type="button" data-efmt="orderedlist" title="Numbered list">1.</button>' +
               '<button type="button" data-efmt="highlight" title="Highlight">H</button>' +
+              '<button type="button" data-efmt="paragraph" title="Normal text">¶</button>' +
             '</div>') +
           '<div class="note-editor-body" contenteditable="' + (ro ? 'false' : 'true') + '" id="editorBody">' + html + '</div>' +
         '</div>' +
@@ -1385,6 +1407,86 @@
         '</div>' +
       '</div>'
     );
+  }
+
+  /* ---------------- rich-list keyboard handling for the doc editor ----------------
+     Implements the behavior people expect from a real editor:
+       - Enter inside a non-empty list item creates a new list item.
+       - Enter on an EMPTY list item breaks out of the list into a normal
+         paragraph (instead of endlessly creating empty bullets).
+       - Backspace at the very start of a list item outdents it: first
+         press converts that item to a normal paragraph rather than
+         merging into the previous line/bullet unexpectedly.
+       - Tab / Shift+Tab indent/outdent list items (nested lists).
+     Native contenteditable already does some of this inconsistently across
+     browsers, so we intercept the keys and drive it explicitly.
+  ------------------------------------------------------------------------- */
+  function getListItemAncestor(node, root) {
+    while (node && node !== root) {
+      if (node.nodeType === 1 && node.tagName === "LI") return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+  function isCaretAtStartOfNode(rangeNode, offset, container) {
+    // true if the caret is at the very start of `container`'s text content
+    if (offset !== 0) return false;
+    var range = document.createRange();
+    range.selectNodeContents(container);
+    range.setEnd(rangeNode, offset);
+    return range.toString().length === 0;
+  }
+  function isListItemEmpty(li) {
+    return li.textContent.replace(/\u200B/g, "").trim() === "";
+  }
+  function handleEditorKeydown(ev, body) {
+    if (ev.key === "Tab") {
+      ev.preventDefault();
+      document.execCommand(ev.shiftKey ? "outdent" : "indent");
+      return true;
+    }
+    var sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return false;
+    var range = sel.getRangeAt(0);
+    var li = getListItemAncestor(range.startContainer, body);
+
+    if (ev.key === "Enter" && li && isListItemEmpty(li)) {
+      ev.preventDefault();
+      // empty bullet -> break out of the list entirely into a normal paragraph
+      var list = li.parentNode;
+      var p = document.createElement("div");
+      p.innerHTML = "<br>";
+      if (list.nextSibling) list.parentNode.insertBefore(p, list.nextSibling);
+      else list.parentNode.appendChild(p);
+      li.parentNode.removeChild(li);
+      if (list.children.length === 0) list.parentNode.removeChild(list);
+      var r = document.createRange();
+      r.setStart(p, 0);
+      r.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(r);
+      return true;
+    }
+
+    if (ev.key === "Backspace" && li) {
+      var atStart = isCaretAtStartOfNode(range.startContainer, range.startOffset, li);
+      if (atStart) {
+        ev.preventDefault();
+        var list = li.parentNode;
+        var p = document.createElement("div");
+        p.innerHTML = li.innerHTML || "<br>";
+        if (list.parentNode) list.parentNode.insertBefore(p, list);
+        list.removeChild(li);
+        if (list.children.length === 0 && list.parentNode) list.parentNode.removeChild(list);
+        var r2 = document.createRange();
+        r2.selectNodeContents(p);
+        r2.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(r2);
+        return true;
+      }
+    }
+    return false;
   }
 
   /* ---------------- events ---------------- */
@@ -1440,7 +1542,7 @@
         ev.preventDefault();
         var text = document.getElementById("nText").value.trim();
         if (!text) return;
-        var entry = { id: uid(), type: "note", date: document.getElementById("nDate").value, text: text, html: esc(text), sortIndex: Date.now(), updatedAt: Date.now() };
+        var entry = { id: uid(), type: "note", date: document.getElementById("nDate").value, text: text, html: esc(text), colorIndex: nextColorIndex(), sortIndex: Date.now(), updatedAt: Date.now() };
         state.entries.push(entry);
         state._noteFormOpen = false;
         persistEntries();
@@ -1538,9 +1640,18 @@
     });
 
     // doc editor: live-save body text/html as it's typed (debounced write,
-    // no re-render mid-typing so the caret is never disturbed)
+    // no re-render mid-typing so the caret is never disturbed), plus
+    // intelligent list handling for Enter / Backspace / Tab
     var editorBody = document.getElementById("editorBody");
     if (editorBody) {
+      editorBody.addEventListener("keydown", function (ev) {
+        var handled = handleEditorKeydown(ev, editorBody);
+        if (handled) {
+          var n = state.entries.find(function (x) { return x.id === state._editingNoteId; });
+          if (n) { n.html = editorBody.innerHTML; n.text = editorBody.textContent; n.updatedAt = Date.now(); }
+          persistEntries();
+        }
+      });
       editorBody.addEventListener("input", function () {
         var n = state.entries.find(function (x) { return x.id === state._editingNoteId; });
         if (n) { n.html = editorBody.innerHTML; n.text = editorBody.textContent; n.updatedAt = Date.now(); }
@@ -1561,7 +1672,8 @@
         persistEntries();
       });
     }
-    // doc editor formatting toolbar — Bold / bulleted list / highlight
+    // doc editor formatting toolbar — Bold / Italic / bulleted list /
+    // numbered list / highlight / normal-text (clears list/formatting)
     Array.prototype.forEach.call(document.querySelectorAll("[data-efmt]"), function (btn) {
       btn.addEventListener("mousedown", function (ev) { ev.preventDefault(); });
       btn.addEventListener("click", function () {
@@ -1570,8 +1682,21 @@
         body.focus();
         var cmd = btn.getAttribute("data-efmt");
         if (cmd === "bold") document.execCommand("bold");
+        else if (cmd === "italic") document.execCommand("italic");
         else if (cmd === "list") document.execCommand("insertUnorderedList");
+        else if (cmd === "orderedlist") document.execCommand("insertOrderedList");
         else if (cmd === "highlight") document.execCommand("hiliteColor", false, "rgba(255,255,255,.55)");
+        else if (cmd === "paragraph") {
+          // strip the current line out of any list back to a plain paragraph
+          var sel = window.getSelection();
+          if (sel && sel.rangeCount) {
+            var li = getListItemAncestor(sel.getRangeAt(0).startContainer, body);
+            if (li) {
+              document.execCommand(li.closest("ol") ? "insertOrderedList" : "insertUnorderedList");
+            }
+          }
+          document.execCommand("removeFormat");
+        }
         var n = state.entries.find(function (x) { return x.id === state._editingNoteId; });
         if (n) { n.html = body.innerHTML; n.text = body.textContent; n.updatedAt = Date.now(); }
         persistEntries();
