@@ -271,13 +271,33 @@
     color: var(--muted); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
   }
   .sort-btn.active { background: var(--matcha); color: #fff; border-color: var(--matcha); }
-  .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .notes-grid {
+    column-count: 4; column-width: 216px; column-gap: 18px;
+    padding: 8px 6px 4px;
+  }
   .note-card {
-    border: 1px solid transparent; border-radius: 10px;
-    padding: 14px 14px 40px 26px; position: relative;
-    box-shadow: 0 2px 6px rgba(56,72,45,.08); min-height: 100px;
+    border: 1px solid transparent; border-radius: 3px 3px 10px 10px;
+    padding: 16px 16px 40px 28px; position: relative;
+    box-shadow: 0 3px 8px rgba(56,72,45,.16), 0 1px 3px rgba(56,72,45,.10);
+    min-height: 90px;
+    display: inline-block; width: 100%; break-inside: avoid;
+    margin: 0 0 20px; vertical-align: top;
+    transition: transform .16s ease, box-shadow .16s ease;
+  }
+  .note-card::after {
+    content: ""; position: absolute; right: 0; bottom: 0; width: 0; height: 0;
+    border-style: solid; border-width: 0 0 18px 18px;
+    border-color: transparent transparent rgba(0,0,0,.16) transparent;
+    border-radius: 0 0 10px 0; pointer-events: none;
+  }
+  .note-card:hover {
+    transform: rotate(0deg) translateY(-3px) !important;
+    box-shadow: 0 12px 24px rgba(56,72,45,.26), 0 2px 6px rgba(56,72,45,.14);
+    z-index: 4;
   }
   .note-card.dragging { opacity: .45; }
+  @media (max-width: 1100px) { .notes-grid { column-count: 3; } }
+  @media (max-width: 820px) { .notes-grid { column-count: 2; } }
   .note-drag-handle {
     position: absolute; left: 0; top: 0; bottom: 0; width: 20px;
     display: flex; align-items: center; justify-content: center;
@@ -295,7 +315,6 @@
   .note-date:hover { border-bottom-color: currentColor; }
   .note-date-input { width: auto; font-size: 11px; padding: 3px 5px; }
   .note-toolbar { display: none; gap: 4px; margin-bottom: 6px; }
-  .note-card.editing .note-toolbar { display: flex; }
   .note-toolbar button {
     border: 1px solid rgba(56,72,45,.25); background: rgba(255,255,255,.55);
     border-radius: 5px; width: 24px; height: 22px; font-size: 12px; font-weight: 700;
@@ -303,17 +322,54 @@
     color: var(--matcha-ink); font-family: inherit; padding: 0;
   }
   .note-toolbar button:hover { background: rgba(255,255,255,.9); }
-  .note-text {
-    font-size: 13.5px; white-space: pre-wrap; outline: none; min-height: 20px;
-    border-radius: 4px;
+  .note-text-preview {
+    font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; cursor: pointer;
+    display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden;
   }
-  .note-text:focus { box-shadow: 0 0 0 2px rgba(255,255,255,.6) inset; }
-  .note-text ul { margin: 4px 0; padding-left: 18px; }
-  .note-text a { color: inherit; text-decoration: underline; }
+  .note-text-preview ul { margin: 4px 0; padding-left: 18px; }
+  .note-text-preview a { color: inherit; text-decoration: underline; }
   .note-del { position: absolute; bottom: 8px; right: 8px; }
   .note-pin-btn { position: absolute; top: 6px; right: 6px; opacity: .5; }
   .note-pin-btn.pinned { opacity: 1; }
-  .note-card.pinned { box-shadow: 0 0 0 2px rgba(56,72,45,.35), 0 2px 6px rgba(56,72,45,.08); }
+  .note-card.pinned { box-shadow: 0 0 0 2px rgba(56,72,45,.35), 0 3px 8px rgba(56,72,45,.16); }
+
+  /* ---------- Full note editor — the "doc" writing surface ---------- */
+  .note-editor-overlay {
+    position: fixed; inset: 0; background: rgba(56,72,45,.45);
+    display: flex; align-items: center; justify-content: center; z-index: 160; padding: 30px;
+  }
+  .note-editor {
+    width: 620px; max-width: 92vw; max-height: 86vh; overflow-y: auto;
+    border-radius: 4px 4px 14px 14px; padding: 40px 46px 48px; position: relative;
+    box-shadow: 0 30px 70px rgba(0,0,0,.35);
+  }
+  .note-editor-close {
+    position: absolute; top: 14px; right: 14px; opacity: .65; font-size: 16px;
+  }
+  .note-editor-close:hover { opacity: 1; background: rgba(0,0,0,.08); }
+  .note-editor-date-input {
+    background: transparent; border: none; font-weight: 700; text-transform: uppercase;
+    font-size: 12px; letter-spacing: .05em; padding: 0; margin-bottom: 18px; width: auto;
+  }
+  .note-editor-date-input:focus { outline: none; }
+  .note-editor-date-fixed {
+    font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .05em;
+    opacity: .8; margin-bottom: 18px; display: block;
+  }
+  .note-editor-toolbar { display: flex; gap: 6px; margin-bottom: 20px; }
+  .note-editor-toolbar button {
+    border: 1px solid rgba(0,0,0,.15); background: rgba(255,255,255,.5);
+    border-radius: 6px; width: 30px; height: 28px; font-size: 13px; font-weight: 700;
+    cursor: pointer; color: inherit; font-family: inherit;
+  }
+  .note-editor-toolbar button:hover { background: rgba(255,255,255,.85); }
+  .note-editor-body {
+    font-family: 'Fraunces', Georgia, serif; font-size: 17px; line-height: 1.75;
+    min-height: 280px; outline: none;
+  }
+  .note-editor-body ul { margin: 10px 0; padding-left: 24px; }
+  .note-editor-body a { color: inherit; text-decoration: underline; }
+  .note-editor-body:empty::before { content: "Start writing…"; opacity: .45; }
 
   /* ---------- Sidebar tools: export / trash / share ---------- */
   .sidebar-tools { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
@@ -386,7 +442,7 @@
     .form-grid { grid-template-columns: 1fr; }
     .checklist-row { flex-wrap: wrap; }
     .checklist-deadline-input { max-width: 120px; }
-    .notes-grid { grid-template-columns: 1fr 1fr; }
+    .notes-grid { column-count: 2; }
     .fab { right: 20px; bottom: 20px; }
   }
 </style>
@@ -472,6 +528,15 @@
   ];
   function noteColor(i) { return NOTE_PALETTE[i % NOTE_PALETTE.length]; }
 
+  /* deterministic per-note tilt so the board reads like a corkboard, not
+     a re-randomizing mess on every render */
+  var NOTE_ROTATIONS = [-2.2, -1.3, -0.5, 0.5, 1.3, 2, -1.8, 0.9];
+  function noteRotation(id) {
+    var hash = 0;
+    for (var i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+    return NOTE_ROTATIONS[hash % NOTE_ROTATIONS.length];
+  }
+
   var state = {
     entries: [],       // single source of truth — notes, checklist items, AND milestones
                         // (checklist items are entries with type:"checklist"; the Checklist tab
@@ -486,6 +551,7 @@
     _hidingIds: {},        // ids currently mid-undo-window, hidden but not yet deleted
     _noteSort: "desc",     // "desc" = newest first, "asc" = oldest first
     _noteFormOpen: false,  // whether the add-note popup is open
+    _editingNoteId: null,  // id of the note currently open in the full-page doc editor
     _readOnly: false       // true when viewing a shared read-only snapshot link
   };
 
@@ -1195,12 +1261,13 @@
   }
 
   /* ---------------- Notes ----------------
-     A sticky-note board, separate from the Timeline. Text is directly
-     editable in place, dates are click-to-edit, a small toolbar (Bold /
-     bulleted list / highlight) appears while a note is focused, and cards
-     are only draggable from the left grip strip so clicking or selecting
-     text never triggers a reorder. Colors cycle through the palette by
-     display position, so no two neighboring cards ever match.
+     A corkboard of sticky notes, separate from the Timeline. Cards in the
+     grid are a read-only preview (clamped, tilted, masonry-packed so a
+     one-word note doesn't stretch to match its neighbor). Clicking a note
+     opens it in a full-page doc-style editor — generous margins, serif
+     type, a real writing surface — where the actual editing happens.
+     Colors cycle through the palette by display position, so no two
+     neighboring cards ever match.
   --------------------------------------------------------------------- */
   function noteSortValue(e) {
     return e.sortIndex != null ? e.sortIndex : (e.updatedAt || 0);
@@ -1250,7 +1317,8 @@
         ? '<div class="empty-state">No notes yet — click the + button to add one.</div>'
         : '<div class="notes-grid" id="notesGrid">' + cards + '</div>') +
       (state._readOnly ? '' : '<button type="button" class="fab" id="addNoteFab" aria-label="Add note">+</button>') +
-      (state._noteFormOpen ? renderNotePopup() : '')
+      (state._noteFormOpen ? renderNotePopup() : '') +
+      (state._editingNoteId ? renderNoteEditor() : '')
     );
   }
 
@@ -1259,22 +1327,47 @@
 
   function renderNoteCard(e, idx) {
     var c = noteColor(idx);
+    var rot = noteRotation(e.id);
     var html = e.html != null ? e.html : esc(e.text || "");
-    var style = 'background:' + c.bg + ';border-color:' + c.border + ';color:' + c.ink + ';';
+    var style = 'background:' + c.bg + ';border-color:' + c.border + ';color:' + c.ink + ';transform:rotate(' + rot + 'deg);';
     var ro = state._readOnly;
     return (
       '<div class="note-card' + (e.pinned ? ' pinned' : '') + '" data-note-id="' + e.id + '" style="' + style + '">' +
         (ro ? '' : '<div class="note-drag-handle" data-drag-handle="' + e.id + '" aria-label="Drag to reorder">' + ICON_GRIP + '</div>') +
         (ro ? '' : '<button type="button" class="icon-btn note-pin-btn' + (e.pinned ? ' pinned' : '') + '" data-pin-toggle="' + e.id + '" style="color:' + c.ink + '" aria-label="' + (e.pinned ? "Unpin note" : "Pin note") + '">' + (e.pinned ? ICON_PIN : ICON_PIN_OUTLINE) + '</button>') +
-        '<div class="note-date-wrap"><span class="note-date" data-date-display="' + e.id + '">' + fmtDateShort(e.date) + '</span></div>' +
-        (ro ? '' :
-        '<div class="note-toolbar" data-toolbar-for="' + e.id + '">' +
-          '<button type="button" data-fmt="bold" title="Bold"><b>B</b></button>' +
-          '<button type="button" data-fmt="list" title="Bulleted list">&#8226;</button>' +
-          '<button type="button" data-fmt="highlight" title="Highlight">H</button>' +
-        '</div>') +
-        '<div class="note-text" contenteditable="' + (ro ? 'false' : 'true') + '" data-note-text="' + e.id + '">' + html + '</div>' +
+        '<div class="note-date-wrap"><span class="note-date">' + fmtDateShort(e.date) + '</span></div>' +
+        '<div class="note-text-preview" data-open-editor="' + e.id + '">' + html + '</div>' +
         (ro ? '' : '<button class="icon-btn note-del" data-del-entry="' + e.id + '" aria-label="Delete note" style="color:' + c.ink + '">' + ICON_TRASH + '</button>') +
+      '</div>'
+    );
+  }
+
+  /* the doc-style editor — a real writing surface for the note that's
+     currently open, in the same color as its card so it still feels like
+     "that" note, just unfolded to full size */
+  function renderNoteEditor() {
+    var id = state._editingNoteId;
+    var n = state.entries.find(function (x) { return x.id === id; });
+    if (!n) return '';
+    var idx = sortedNotes().findIndex(function (x) { return x.id === id; });
+    var c = noteColor(idx === -1 ? 0 : idx);
+    var ro = state._readOnly;
+    var html = n.html != null ? n.html : esc(n.text || "");
+    return (
+      '<div class="note-editor-overlay" id="noteEditorOverlay">' +
+        '<div class="note-editor" style="background:' + c.bg + ';color:' + c.ink + ';border:1px solid ' + c.border + ';">' +
+          '<button type="button" class="icon-btn note-editor-close" id="closeEditorBtn" style="color:' + c.ink + '" aria-label="Close">✕</button>' +
+          (ro
+            ? '<span class="note-editor-date-fixed">' + fmtDate(n.date) + '</span>'
+            : '<input type="date" class="note-editor-date-input" id="editorDate" value="' + esc(n.date || "") + '" style="color:' + c.ink + '">') +
+          (ro ? '' :
+            '<div class="note-editor-toolbar" style="color:' + c.ink + '">' +
+              '<button type="button" data-efmt="bold" title="Bold"><b>B</b></button>' +
+              '<button type="button" data-efmt="list" title="Bulleted list">&#8226;</button>' +
+              '<button type="button" data-efmt="highlight" title="Highlight">H</button>' +
+            '</div>') +
+          '<div class="note-editor-body" contenteditable="' + (ro ? 'false' : 'true') + '" id="editorBody">' + html + '</div>' +
+        '</div>' +
       '</div>'
     );
   }
@@ -1424,30 +1517,6 @@
       });
     });
 
-    // editable note text — contenteditable, saved as HTML so bold/list/
-    // highlight formatting survives; no full re-render while typing so the
-    // caret position and current selection are never disturbed
-    Array.prototype.forEach.call(document.querySelectorAll("[data-note-text]"), function (el) {
-      var id = el.getAttribute("data-note-text");
-      el.addEventListener("focus", function () {
-        var card = el.closest(".note-card");
-        if (card) card.classList.add("editing");
-      });
-      el.addEventListener("input", function () {
-        var n = state.entries.find(function (x) { return x.id === id; });
-        if (n) { n.html = el.innerHTML; n.text = el.textContent; n.updatedAt = Date.now(); }
-        persistEntries();
-      });
-      el.addEventListener("blur", function () {
-        linkifyNoteEl(el);
-        var n2 = state.entries.find(function (x) { return x.id === id; });
-        if (n2) { n2.html = el.innerHTML; n2.text = el.textContent; n2.updatedAt = Date.now(); }
-        persistEntries();
-        var card = el.closest(".note-card");
-        if (card) card.classList.remove("editing");
-        render();
-      });
-    });
     // pin / unpin a note — pinned notes float to the top regardless of sort
     Array.prototype.forEach.call(document.querySelectorAll("[data-pin-toggle]"), function (btn) {
       btn.addEventListener("click", function (ev) {
@@ -1459,47 +1528,81 @@
         render();
       });
     });
-    // formatting toolbar — Bold / bulleted list / highlight
-    Array.prototype.forEach.call(document.querySelectorAll("[data-fmt]"), function (btn) {
+
+    // open the full-page doc editor for a note
+    Array.prototype.forEach.call(document.querySelectorAll("[data-open-editor]"), function (el) {
+      el.addEventListener("click", function () {
+        state._editingNoteId = el.getAttribute("data-open-editor");
+        render();
+      });
+    });
+
+    // doc editor: live-save body text/html as it's typed (debounced write,
+    // no re-render mid-typing so the caret is never disturbed)
+    var editorBody = document.getElementById("editorBody");
+    if (editorBody) {
+      editorBody.addEventListener("input", function () {
+        var n = state.entries.find(function (x) { return x.id === state._editingNoteId; });
+        if (n) { n.html = editorBody.innerHTML; n.text = editorBody.textContent; n.updatedAt = Date.now(); }
+        persistEntries();
+      });
+      editorBody.addEventListener("blur", function () {
+        linkifyNoteEl(editorBody);
+        var n = state.entries.find(function (x) { return x.id === state._editingNoteId; });
+        if (n) { n.html = editorBody.innerHTML; n.text = editorBody.textContent; n.updatedAt = Date.now(); }
+        persistEntries();
+      });
+    }
+    var editorDate = document.getElementById("editorDate");
+    if (editorDate) {
+      editorDate.addEventListener("change", function () {
+        var n = state.entries.find(function (x) { return x.id === state._editingNoteId; });
+        if (n) { n.date = editorDate.value || n.date; n.updatedAt = Date.now(); }
+        persistEntries();
+      });
+    }
+    // doc editor formatting toolbar — Bold / bulleted list / highlight
+    Array.prototype.forEach.call(document.querySelectorAll("[data-efmt]"), function (btn) {
       btn.addEventListener("mousedown", function (ev) { ev.preventDefault(); });
       btn.addEventListener("click", function () {
-        var toolbar = btn.closest(".note-toolbar");
-        var id = toolbar ? toolbar.getAttribute("data-toolbar-for") : null;
-        var textEl = id ? document.querySelector('[data-note-text="' + id + '"]') : null;
-        if (!textEl) return;
-        textEl.focus();
-        var cmd = btn.getAttribute("data-fmt");
+        var body = document.getElementById("editorBody");
+        if (!body) return;
+        body.focus();
+        var cmd = btn.getAttribute("data-efmt");
         if (cmd === "bold") document.execCommand("bold");
         else if (cmd === "list") document.execCommand("insertUnorderedList");
         else if (cmd === "highlight") document.execCommand("hiliteColor", false, "rgba(255,255,255,.55)");
-        var n = state.entries.find(function (x) { return x.id === id; });
-        if (n) { n.html = textEl.innerHTML; n.text = textEl.textContent; n.updatedAt = Date.now(); }
+        var n = state.entries.find(function (x) { return x.id === state._editingNoteId; });
+        if (n) { n.html = body.innerHTML; n.text = body.textContent; n.updatedAt = Date.now(); }
         persistEntries();
       });
     });
-    // click-to-edit note date
-    Array.prototype.forEach.call(document.querySelectorAll("[data-date-display]"), function (span) {
-      span.addEventListener("click", function () {
-        if (state._readOnly) return;
-        var id = span.getAttribute("data-date-display");
-        var n = state.entries.find(function (x) { return x.id === id; });
-        if (!n) return;
-        var input = document.createElement("input");
-        input.type = "date";
-        input.className = "note-date-input";
-        input.value = n.date || "";
-        span.replaceWith(input);
-        input.focus();
-        function commit() {
-          n.date = input.value || n.date;
-          n.updatedAt = Date.now();
-          persistEntries();
-          render();
-        }
-        input.addEventListener("change", commit);
-        input.addEventListener("blur", function () { render(); });
+    // close the editor — click the backdrop, the ✕, or press Escape
+    function closeNoteEditor() {
+      if (!state._editingNoteId) return;
+      var body = document.getElementById("editorBody");
+      if (body) {
+        var n = state.entries.find(function (x) { return x.id === state._editingNoteId; });
+        if (n) { n.html = body.innerHTML; n.text = body.textContent; n.updatedAt = Date.now(); }
+        persistEntries();
+      }
+      state._editingNoteId = null;
+      render();
+    }
+    var noteEditorOverlay = document.getElementById("noteEditorOverlay");
+    if (noteEditorOverlay) {
+      noteEditorOverlay.addEventListener("click", function (ev) {
+        if (ev.target === noteEditorOverlay) closeNoteEditor();
       });
-    });
+      var noteEditorInner = noteEditorOverlay.querySelector(".note-editor");
+      if (noteEditorInner) noteEditorInner.addEventListener("click", function (ev) { ev.stopPropagation(); });
+      var escHandler = function (ev) {
+        if (ev.key === "Escape") { closeNoteEditor(); document.removeEventListener("keydown", escHandler); }
+      };
+      document.addEventListener("keydown", escHandler);
+    }
+    var closeEditorBtn = document.getElementById("closeEditorBtn");
+    if (closeEditorBtn) closeEditorBtn.addEventListener("click", closeNoteEditor);
 
     // toggles checklist entries (Done/Open) — this single handler is what
     // makes checking a box on the Checklist tab show up on the Timeline
