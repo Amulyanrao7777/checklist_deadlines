@@ -1,0 +1,1031 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --matcha: #4A6644;
+    --matcha-ink: #38482D;
+    --berry: #C66F80;
+    --sage: #9FAA74;
+    --gold: #F4C7D0;
+    --cream: #FCEBF1;
+    --paper: #FFFDFB;
+    --line: #FAE2E3;
+    --muted: #8C8577;
+    --a-bg: #D7DAB3; --a-ink: #38482D;
+    --v-bg: #F9D0CE; --v-ink: #73404A;
+    --y-bg: #FAD7DB; --y-ink: #855358;
+    --mint: #D9DDC7;
+    --mint-ink: #38482D;
+    --radius: 10px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .app {
+    background: var(--paper);
+    color: var(--matcha-ink);
+    min-height: 100vh;
+    display: flex;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .display { font-family: 'Fraunces', Georgia, serif; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    background: var(--matcha);
+    color: #FCEBF1;
+    padding: 22px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .brand { padding: 0 8px; }
+  .brand .eyebrow {
+    font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase;
+    color: #D7DAB3; margin-bottom: 4px;
+  }
+  .brand h1 {
+    font-size: 19px; font-weight: 600; margin: 0; line-height: 1.25;
+  }
+  nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 10px; border-radius: 8px; border: none;
+    background: transparent; color: #D7DAB3; cursor: pointer;
+    font-family: inherit; font-size: 13.5px; font-weight: 500;
+    text-align: left; width: 100%;
+    transition: background .15s ease, color .15s ease;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.07); color: #fff; }
+  .nav-btn.active { background: var(--cream); color: var(--matcha); }
+  .nav-btn svg { flex-shrink: 0; }
+  .sidebar-foot {
+    margin-top: auto; padding: 10px 8px 0; border-top: 1px solid rgba(255,255,255,0.12);
+    font-size: 11.5px; color: #D7DAB3;
+  }
+  .sync-badge { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sage); flex-shrink: 0; }
+  .sync-dot.off { background: var(--gold); }
+  .sync-dot.syncing { background: var(--gold); animation: sync-pulse 1s ease-in-out infinite; }
+  @keyframes sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  .sync-refresh { border: none; background: transparent; color: #D7DAB3; cursor: pointer; padding: 2px; display: inline-flex; margin-left: 2px; border-radius: 4px; }
+  .sync-refresh:hover { color: #fff; }
+
+  /* ---------- Main ---------- */
+  main { flex: 1; padding: 30px 40px 60px; max-width: 980px; }
+  .view-head { margin-bottom: 22px; }
+  .view-head h2 { font-size: 24px; margin: 0 0 4px; font-weight: 600; }
+  .view-head p { margin: 0; color: var(--muted); font-size: 13.5px; }
+
+  /* ---------- Stat tiles ---------- */
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 26px; }
+  .tile {
+    background: var(--cream); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .tile .num { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 600; color: var(--matcha); }
+  .tile .label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .tile.tile-blossom { background: #F4C7D0; border-color: #D7AFB7; }
+  .tile.tile-blossom .num { color: #73404A; }
+  .tile.tile-mint { background: var(--mint); border-color: #BFC2AF; }
+  .tile.tile-mint .num { color: var(--mint-ink); }
+
+  /* ---------- Timeline (signature element) ---------- */
+  .timeline { position: relative; padding-left: 26px; }
+  .timeline::before {
+    content: ""; position: absolute; left: 6px; top: 4px; bottom: 4px; width: 1px;
+    background: var(--line);
+  }
+  .t-item { position: relative; padding-bottom: 22px; }
+  .t-item:last-child { padding-bottom: 0; }
+  .t-dot {
+    position: absolute; left: -26px; top: 3px; width: 11px; height: 11px; border-radius: 50%;
+    background: var(--muted); border: 2px solid var(--paper); box-shadow: 0 0 0 1px var(--line);
+  }
+  .t-dot.overdue { background: var(--berry); }
+  .t-dot.soon { background: var(--gold); }
+  .t-dot.ontrack { background: var(--matcha); }
+  .t-dot.done { background: var(--sage); }
+  .t-dot.note { background: var(--matcha-ink); width: 9px; height: 9px; }
+  .t-date { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .t-title { font-size: 14px; font-weight: 500; margin-top: 1px; }
+  .t-title.done-text { color: var(--muted); text-decoration: line-through; font-weight: 400; }
+  .t-meta { display: flex; gap: 6px; align-items: center; margin-top: 5px; flex-wrap: wrap; }
+  .t-note-text { margin-top: 3px; font-size: 13.5px; color: #38482D; white-space: pre-wrap; }
+  .today-line {
+    position: relative; display: flex; align-items: center; gap: 10px;
+    margin: -6px 0 16px -26px; padding-left: 0;
+  }
+  .today-line .dash { flex: 1; height: 1px; background: var(--berry); opacity: .4; }
+  .today-line span {
+    font-size: 10.5px; font-weight: 700; color: var(--berry); letter-spacing: .06em; text-transform: uppercase;
+  }
+
+  /* ---------- Pills / tags ---------- */
+  .pill {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px;
+  }
+  .pill-a { background: var(--a-bg); color: var(--a-ink); }
+  .pill-v { background: var(--v-bg); color: var(--v-ink); }
+  .pill-y { background: var(--y-bg); color: var(--y-ink); }
+  .status-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+  .status-overdue { background: #FAD7DB; color: #855358; }
+  .status-soon { background: #F4C7D0; color: #73404A; }
+  .status-ontrack { background: #D7DAB3; color: var(--matcha); }
+  .status-done { background: #D9DDC7; color: #38482D; }
+  .status-not-started { background: #F3EBD8; color: var(--muted); }
+  .status-in-progress { background: #F4C7D0; color: #73404A; }
+  .status-complete { background: var(--mint); color: var(--mint-ink); }
+
+  /* ---------- Cards ---------- */
+  .icon-btn {
+    border: none; background: transparent; color: var(--muted); cursor: pointer;
+    padding: 4px; border-radius: 6px; display: inline-flex; align-items: center;
+  }
+  .icon-btn:hover { background: var(--cream); color: var(--berry); }
+  .task-check {
+    width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--line);
+    background: #fff; cursor: pointer; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .task-check.checked { background: var(--sage); border-color: var(--sage); color: #fff; }
+
+  /* ---------- Add panel ---------- */
+  .form-panel {
+    background: var(--cream); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px 18px; margin-bottom: 22px;
+  }
+  .form-panel h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+  .type-toggle { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .type-btn {
+    flex: 1; min-width: 84px; padding: 7px 10px; border-radius: 7px; border: 1px solid var(--line);
+    background: #fff; color: var(--matcha-ink); font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .type-btn.active { background: var(--matcha); color: #fff; border-color: var(--matcha); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .field.wide { grid-column: 1 / -1; }
+  .field label { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .03em; }
+  input[type=text], input[type=date], select, textarea {
+    width: 100%; font-family: inherit; font-size: 13.5px; padding: 7px 9px;
+    border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--matcha-ink);
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--matcha); outline-offset: 1px; }
+  textarea { resize: vertical; min-height: 60px; }
+  .btn {
+    font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    border-radius: 7px; padding: 8px 14px; border: 1px solid transparent;
+  }
+  .btn-primary { background: var(--matcha); color: #fff; }
+  .btn-primary:hover { background: var(--matcha-ink); }
+  .btn-ghost { background: transparent; color: var(--matcha); border-color: var(--line); }
+  .btn-ghost:hover { background: var(--cream); }
+  .form-actions { margin-top: 12px; display: flex; gap: 8px; }
+
+  /* ---------- Filters ---------- */
+  .filters { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+  .owner-pills { display: flex; gap: 6px; }
+  .owner-pill {
+    padding: 4px 11px; border-radius: 20px; border: 1px solid var(--line); background: #fff;
+    color: var(--muted); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .owner-pill.active { background: var(--matcha); color: #fff; border-color: var(--matcha); }
+  .hide-done-toggle { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--matcha-ink); cursor: pointer; }
+  .hide-done-toggle input { width: auto; }
+
+  .empty-state {
+    border: 1px dashed var(--line); border-radius: var(--radius); padding: 26px;
+    text-align: center; color: var(--muted); font-size: 13.5px;
+  }
+
+  /* ---------- Checklist ---------- */
+  .checklist-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 14px; margin-bottom: 12px; }
+  .checklist-row { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); }
+  .checklist-row:last-child { border-bottom: none; }
+  .checklist-text { flex: 1; font-size: 13.5px; }
+  .checklist-text.checked { color: var(--muted); text-decoration: line-through; }
+  .checklist-deadline-input { width: auto; max-width: 132px; flex-shrink: 0; font-size: 12px; padding: 5px 7px; }
+  .add-inline { display: flex; gap: 8px; margin-top: 12px; }
+  .add-inline input[type=text] { flex: 1; }
+  .add-inline input[type=date] { width: auto; max-width: 150px; flex-shrink: 0; }
+  .date-chip {
+    font-size: 11px; font-weight: 600; color: var(--muted); background: var(--cream);
+    padding: 2px 8px; border-radius: 20px; flex-shrink: 0; white-space: nowrap;
+  }
+
+  /* ---------- Checklist row menu ---------- */
+  .checklist-menu-wrap { position: relative; flex-shrink: 0; }
+  .menu-btn { }
+  .checklist-menu {
+    position: absolute; right: 0; top: 30px; z-index: 30;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(56,72,45,0.18); padding: 12px; width: 190px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .checklist-menu label {
+    font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .checklist-menu input[type=date], .checklist-menu select { font-size: 12.5px; padding: 6px 8px; }
+  .menu-link {
+    background: none; border: none; color: var(--matcha); font-family: inherit;
+    font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; padding: 0;
+  }
+  .menu-link:hover { text-decoration: underline; }
+  .menu-delete {
+    margin-top: 2px; background: none; border: 1px solid var(--line); color: var(--berry);
+    font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    padding: 6px 8px; border-radius: 7px;
+  }
+  .menu-delete:hover { background: var(--y-bg); }
+
+  /* ---------- Undo toast ---------- */
+  .toast-area {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    display: flex; flex-direction: column; gap: 8px; z-index: 200;
+  }
+  .toast {
+    background: var(--matcha-ink); color: var(--cream); padding: 10px 16px; border-radius: 9px;
+    display: flex; align-items: center; gap: 14px; font-size: 13px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.22);
+  }
+  .toast button {
+    background: none; border: none; color: var(--gold); font-family: inherit;
+    font-weight: 700; font-size: 13px; cursor: pointer; padding: 0;
+  }
+  .toast button:hover { text-decoration: underline; }
+
+  @media (max-width: 760px) {
+    .app { flex-direction: column; }
+    .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 12px 14px; gap: 14px; }
+    .brand h1 { font-size: 15px; }
+    nav { flex-direction: row; gap: 4px; }
+    .sidebar-foot { display: none; }
+    main { padding: 20px 16px 40px; }
+    .tiles { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .tile { padding: 10px 10px; }
+    .tile .num { font-size: 22px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .checklist-row { flex-wrap: wrap; }
+    .checklist-deadline-input { max-width: 120px; }
+  }
+</style>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="eyebrow">Fairness Atlas</div>
+      <h1 class="display">Team Ops</h1>
+    </div>
+    <nav id="nav"></nav>
+    <div class="sidebar-foot">
+      <div>A · V · Y</div>
+      <div class="sync-badge"><span class="sync-dot" id="syncDot"></span><span id="syncText">Checking sync…</span><button class="sync-refresh" id="refreshBtn" aria-label="Refresh now" title="Refresh now"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6M20 20v-6h-6"/><path d="M5.5 15a8 8 0 0 0 13-3M18.5 9a8 8 0 0 0-13 3"/></svg></button></div>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div class="toast-area" id="toastArea"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>';
+  var ICON_CHECK = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>';
+  var ICON_DOTS = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
+  var ICONS = {
+    timeline: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>',
+    checklist: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 7h2M5 12h2M5 17h2"/><path d="M10 7h9M10 12h9M10 17h9"/></svg>'
+  };
+  var NAV_ITEMS = [
+    { id: "checklist", label: "Checklist" },
+    { id: "timeline", label: "Timeline" }
+  ];
+  var OWNERS = ["A", "V", "Y"];
+  var MILESTONE_STATUSES = ["Not started", "In progress", "Complete"];
+  var DEFAULT_CHECKLIST = [
+    "Review open action items",
+    "Update the Dataset Tracker with anything new",
+    "Check upcoming deadlines on the board",
+    "Confirm today's agenda"
+  ];
+  var DEFAULT_MILESTONES = [
+    { phase: "4.1", label: "Rename me — phase 4.1 from the proposal" },
+    { phase: "4.2", label: "Rename me — phase 4.2 from the proposal" },
+    { phase: "4.3", label: "Rename me — phase 4.3 from the proposal" },
+    { phase: "4.4", label: "Rename me — phase 4.4 from the proposal" },
+    { phase: "4.5", label: "Rename me — phase 4.5 from the proposal" },
+    { phase: "4.6", label: "Rename me — phase 4.6 from the proposal" }
+  ];
+  var NO_DATE = "9999-12-31";
+
+  /* ---------------- Supabase config ----------------
+     One-time setup:
+     1. Create a free project at supabase.com
+     2. In the SQL editor, run:
+          create table if not exists kv_store (
+            key text primary key,
+            value jsonb not null,
+            updated_at timestamptz not null default now()
+          );
+          alter table kv_store enable row level security;
+          create policy "anon full access" on kv_store
+            for all to anon using (true) with check (true);
+     3. Settings → API → copy the Project URL and the "anon public" key below.
+  ------------------------------------------------------- */
+  var SUPABASE_URL = "PASTE_YOUR_SUPABASE_PROJECT_URL_HERE";
+  var SUPABASE_ANON_KEY = "PASTE_YOUR_SUPABASE_ANON_KEY_HERE";
+  var SUPABASE_TABLE = "kv_store";
+  var POLL_MS = 20000;
+
+  var state = {
+    entries: [],       // single source of truth — notes, tasks, milestones, AND checklist items
+                        // (checklist items are entries with type:"checklist"; the Checklist tab
+                        // is just a filtered view over them, so ticking one off updates the
+                        // Timeline immediately — same record, not a separate synced copy)
+    view: "checklist",
+    storageOK: false,
+    _addType: "note",
+    _ownerFilter: "All",
+    _hideDone: false,
+    _openMenu: null,      // id of the checklist row whose ⋮ menu is open
+    _hidingIds: {}         // ids currently mid-undo-window, hidden but not yet deleted
+  };
+
+  function activeEntries() {
+    return state.entries.filter(function (e) { return !e.deleted && !state._hidingIds[e.id]; });
+  }
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function todayISO() {
+    var d = new Date(); d.setHours(0,0,0,0);
+    return d.toISOString().slice(0, 10);
+  }
+  function fmtDate(iso) {
+    if (!iso || iso === NO_DATE) return "No date";
+    var d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  }
+  function fmtDateShort(iso) {
+    if (!iso || iso === NO_DATE) return "—";
+    var d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  }
+  function daysUntil(iso) {
+    var d = new Date(iso + "T00:00:00");
+    var t = new Date(todayISO() + "T00:00:00");
+    return Math.round((d - t) / 86400000);
+  }
+  function pillClass(owner) {
+    return owner === "A" ? "pill-a" : owner === "V" ? "pill-v" : "pill-y";
+  }
+  function dateStatus(iso) {
+    if (!iso || iso === NO_DATE) return "ontrack";
+    var du = daysUntil(iso);
+    if (du < 0) return "overdue";
+    if (du <= 3) return "soon";
+    return "ontrack";
+  }
+  function statusLabel(dotStatus) {
+    return { overdue: "Overdue", soon: "Due soon", ontrack: "On track", done: "Done" }[dotStatus];
+  }
+  function milestoneStatusClass(status) {
+    return status === "Complete" ? "status-complete" : status === "In progress" ? "status-in-progress" : "status-not-started";
+  }
+  function entryDot(e) {
+    if (e.type === "note") return "note";
+    if (e.type === "task") return e.status === "Done" ? "done" : dateStatus(e.date);
+    if (e.type === "checklist") return e.status === "Done" ? "done" : dateStatus(e.date);
+    return e.status === "Complete" ? "done" : dateStatus(e.date);
+  }
+
+  /* ---------------- storage (Supabase) ---------------- */
+  function configReady() {
+    return SUPABASE_URL.indexOf("PASTE_YOUR") !== 0 && SUPABASE_ANON_KEY.indexOf("PASTE_YOUR") !== 0;
+  }
+  function sbHeaders() {
+    return {
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": "Bearer " + SUPABASE_ANON_KEY,
+      "Content-Type": "application/json"
+    };
+  }
+  function loadKey(key, fallback) {
+    if (!configReady()) return Promise.resolve(fallback);
+    var url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE + "?key=eq." + encodeURIComponent(key) + "&select=value";
+    return fetch(url, { headers: sbHeaders() })
+      .then(function (res) { if (!res.ok) throw new Error("fetch failed"); return res.json(); })
+      .then(function (rows) { return (rows && rows.length > 0) ? rows[0].value : fallback; })
+      .catch(function () { return fallback; });
+  }
+  function saveKey(key, value) {
+    if (!configReady()) return Promise.resolve(false);
+    var url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE;
+    var headers = sbHeaders();
+    headers["Prefer"] = "resolution=merge-duplicates,return=minimal";
+    return fetch(url, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({ key: key, value: value, updated_at: new Date().toISOString() })
+    }).then(function (res) { return res.ok; })
+      .catch(function () { return false; });
+  }
+
+  /* ---------------- safe merge (same logic as My Shelf's mergeBooks) ----------------
+     Union of local + remote by id. Newer updatedAt wins; on a tie, remote wins
+     (cloud is source of truth). Nothing is ever silently dropped by a whole-array
+     overwrite — that's what let concurrent edits from two people stomp on each
+     other before. Deletes are soft (item.deleted = true, still carries an
+     updatedAt) so a delete on one device reliably beats a stale edit from
+     another instead of the item quietly reappearing after a sync.
+  --------------------------------------------------------------------------------- */
+  var TOMBSTONE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 60; // 60 days — quietly drop old deleted rows
+
+  function mergeEntries(local, remote) {
+    if (!Array.isArray(local)) local = [];
+    if (!Array.isArray(remote)) remote = [];
+    var map = {};
+    local.forEach(function (e) { if (e && e.id != null) map[e.id] = e; });
+    remote.forEach(function (e) {
+      if (!e || e.id == null) return;
+      var l = map[e.id];
+      if (!l || (e.updatedAt || 0) >= (l.updatedAt || 0)) map[e.id] = e;
+    });
+    var now = Date.now();
+    return Object.values(map).filter(function (e) {
+      return !(e.deleted && (now - (e.updatedAt || 0)) > TOMBSTONE_MAX_AGE_MS);
+    });
+  }
+
+  function updateSyncStatus(status) {
+    // status: "off" | "syncing" | "idle" | "error"
+    state.storageOK = status === "idle";
+    var dot = document.getElementById("syncDot");
+    var text = document.getElementById("syncText");
+    if (!dot || !text) return;
+    if (!configReady()) { dot.className = "sync-dot off"; text.textContent = "Not connected — add Supabase keys"; return; }
+    if (status === "syncing") { dot.className = "sync-dot syncing"; text.textContent = "Syncing…"; }
+    else if (status === "idle") { dot.className = "sync-dot"; text.textContent = "Synced with team"; }
+    else { dot.className = "sync-dot off"; text.textContent = "Sync error — check keys/connection"; }
+  }
+
+  function isUserTyping() {
+    var el = document.activeElement;
+    return !!(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA"));
+  }
+
+  /* ---------------- delete with 5s undo ----------------
+     The row hides immediately (via _hidingIds, checked in activeEntries),
+     a toast appears with an Undo button, and only once 5s pass with no undo
+     does the entry actually get tombstoned and pushed to storage.
+  --------------------------------------------------------------------------- */
+  var pendingDeleteTimers = {};
+
+  function labelFor(entry) {
+    if (entry.type === "note") return "Note";
+    if (entry.type === "task") return "Task";
+    if (entry.type === "checklist") return "Checklist item";
+    return "Milestone";
+  }
+
+  function showUndoToast(id, message, onExpire) {
+    var area = document.getElementById("toastArea");
+    if (!area) { onExpire(); return; }
+    var el = document.createElement("div");
+    el.className = "toast";
+    el.innerHTML = '<span></span><button type="button">Undo</button>';
+    el.querySelector("span").textContent = message;
+    area.appendChild(el);
+    var timeoutId = setTimeout(function () {
+      delete pendingDeleteTimers[id];
+      if (el.parentNode) el.parentNode.removeChild(el);
+      onExpire();
+    }, 5000);
+    pendingDeleteTimers[id] = timeoutId;
+    el.querySelector("button").addEventListener("click", function () {
+      clearTimeout(pendingDeleteTimers[id]);
+      delete pendingDeleteTimers[id];
+      if (el.parentNode) el.parentNode.removeChild(el);
+      delete state._hidingIds[id];
+      render();
+    });
+  }
+
+  function requestDelete(id) {
+    if (state._hidingIds[id]) return;
+    var entry = state.entries.find(function (x) { return x.id === id; });
+    if (!entry) return;
+    state._hidingIds[id] = true;
+    if (state._openMenu === id) state._openMenu = null;
+    render();
+    showUndoToast(id, labelFor(entry) + " deleted", function () {
+      var e = state.entries.find(function (x) { return x.id === id; });
+      if (e) { e.deleted = true; e.updatedAt = Date.now(); }
+      delete state._hidingIds[id];
+      persistEntries();
+      render();
+    });
+  }
+
+  /* ---- debounced, merge-before-write push (mirrors My Shelf's syncTimer / isSyncingRef) ---- */
+  var pushTimer = null;
+  var isPushing = false;
+  var pushQueued = false;
+
+  function persistEntries() {
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(doPush, 700);
+  }
+
+  function doPush() {
+    if (!configReady()) return;
+    if (isPushing) { pushQueued = true; return; }
+    isPushing = true;
+    updateSyncStatus("syncing");
+    loadKey("entries", state.entries).then(function (remote) {
+      var merged = mergeEntries(state.entries, remote);
+      // Safety guard: never push an empty array over real cloud data — mirrors
+      // My Shelf's "refuse to push empty" check, adapted for a merged result.
+      if (merged.length === 0 && Array.isArray(remote) && remote.length > 0) {
+        return { ok: true, merged: remote };
+      }
+      return saveKey("entries", merged).then(function (ok) { return { ok: ok, merged: merged }; });
+    }).then(function (result) {
+      isPushing = false;
+      var changed = JSON.stringify(result.merged) !== JSON.stringify(state.entries);
+      state.entries = result.merged;
+      updateSyncStatus(result.ok ? "idle" : "error");
+      if (changed && !isUserTyping()) render();
+      if (pushQueued) { pushQueued = false; persistEntries(); }
+    }).catch(function () {
+      isPushing = false;
+      updateSyncStatus("error");
+      if (pushQueued) { pushQueued = false; persistEntries(); }
+    });
+  }
+
+  function pollForUpdates(force) {
+    if (!configReady()) return;
+    if (!force && isUserTyping()) return;
+    loadKey("entries", state.entries).then(function (remote) {
+      var merged = mergeEntries(state.entries, remote);
+      var changed = JSON.stringify(merged) !== JSON.stringify(state.entries);
+      updateSyncStatus("idle");
+      if (changed) {
+        state.entries = merged;
+        render();
+      }
+    }).catch(function () { updateSyncStatus("error"); });
+  }
+
+  function init() {
+    var main = document.getElementById("main");
+    main.innerHTML = '<div class="empty-state">Loading…</div>';
+    updateSyncStatus("off");
+    Promise.all([
+      loadKey("entries", null),
+      loadKey("checklist", null) // legacy key — only read once, for migration
+    ]).then(function (results) {
+      var loadedEntries = results[0];
+      var legacyChecklist = results[1];
+
+      if (loadedEntries === null) {
+        state.entries = DEFAULT_MILESTONES.map(function (m) {
+          return { id: uid(), type: "milestone", phase: m.phase, label: m.label, date: "", status: "Not started", updatedAt: Date.now() };
+        }).concat(DEFAULT_CHECKLIST.map(function (text) {
+          return { id: uid(), type: "checklist", text: text, date: "", owner: "", status: "Open", updatedAt: Date.now() };
+        }));
+      } else {
+        state.entries = loadedEntries;
+      }
+
+      // One-time migration: fold any old-format checklist array (from before
+      // checklist items lived in `entries`) into entries so nothing is lost.
+      if (Array.isArray(legacyChecklist) && legacyChecklist.length) {
+        var already = {};
+        state.entries.forEach(function (e) { if (e.type === "checklist") already[e.id] = true; });
+        legacyChecklist.forEach(function (item) {
+          if (!item || already[item.id]) return;
+          state.entries.push({ id: item.id, type: "checklist", text: item.text, date: "", status: item.checked ? "Done" : "Open", updatedAt: Date.now() });
+        });
+      }
+
+      if (configReady()) persistEntries();
+      updateSyncStatus(configReady() ? "idle" : "off");
+      renderNav();
+      render();
+      if (configReady()) setInterval(function () { pollForUpdates(false); }, POLL_MS);
+    });
+  }
+
+  var refreshBtnEl = document.getElementById("refreshBtn");
+  if (refreshBtnEl) refreshBtnEl.addEventListener("click", function () { pollForUpdates(true); });
+
+  document.addEventListener("click", function () {
+    if (!state._openMenu) return;
+    state._openMenu = null;
+    render();
+  });
+
+  /* ---------------- nav ---------------- */
+  function renderNav() {
+    var nav = document.getElementById("nav");
+    nav.innerHTML = NAV_ITEMS.map(function (item) {
+      return '<button class="nav-btn' + (state.view === item.id ? ' active' : '') + '" data-view="' + item.id + '">' +
+        ICONS[item.id] + '<span class="label">' + item.label + '</span></button>';
+    }).join("");
+    Array.prototype.forEach.call(nav.querySelectorAll(".nav-btn"), function (btn) {
+      btn.addEventListener("click", function () {
+        state.view = btn.getAttribute("data-view");
+        renderNav();
+        render();
+      });
+    });
+  }
+
+  function render() {
+    var main = document.getElementById("main");
+    main.innerHTML = state.view === "timeline" ? viewTimeline() : viewChecklist();
+    bindViewEvents();
+  }
+
+  /* ---------------- Timeline ---------------- */
+  function viewTimeline() {
+    var all = activeEntries();
+    var tasks = all.filter(function (e) { return e.type === "task"; });
+    var openTasks = tasks.filter(function (t) { return t.status !== "Done"; });
+    var overdue = openTasks.filter(function (t) { return t.date && dateStatus(t.date) === "overdue"; });
+
+    var ownerFilter = state._ownerFilter || "All";
+    var hideDone = !!state._hideDone;
+    var visible = all.filter(function (e) {
+      if (e.type === "task") {
+        if (ownerFilter !== "All" && e.owner !== ownerFilter) return false;
+        if (hideDone && e.status === "Done") return false;
+      }
+      if (e.type === "checklist" && hideDone && e.status === "Done") return false;
+      if (e.type === "milestone" && hideDone && e.status === "Complete") return false;
+      return true;
+    }).slice().sort(function (a, b) {
+      var da = (a.date || NO_DATE), db = (b.date || NO_DATE);
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+
+    var today = todayISO();
+    var todayInserted = visible.length === 0 || visible[0].date > today ? false : null;
+    var rows = [];
+    var insertedToday = false;
+    visible.forEach(function (e) {
+      if (!insertedToday && (e.date || NO_DATE) >= today) {
+        rows.push('<div class="today-line"><span>Today · ' + fmtDateShort(today) + '</span><div class="dash"></div></div>');
+        insertedToday = true;
+      }
+      rows.push(renderEntry(e));
+    });
+    if (!insertedToday) {
+      rows.push('<div class="today-line"><span>Today · ' + fmtDateShort(today) + '</span><div class="dash"></div></div>');
+    }
+
+    return (
+      '<div class="view-head"><h2 class="display">Timeline</h2><p>Notes, action items, milestones, and checklist activity — one feed, in order.</p></div>' +
+      '<div class="tiles">' +
+        '<div class="tile"><div class="num">' + openTasks.length + '</div><div class="label">Open tasks</div></div>' +
+        '<div class="tile tile-blossom"><div class="num">' + overdue.length + '</div><div class="label">Overdue</div></div>' +
+        '<div class="tile tile-mint"><div class="num">' + all.length + '</div><div class="label">Logged entries</div></div>' +
+      '</div>' +
+      renderAddPanel() +
+      '<div class="filters">' +
+        '<div class="owner-pills">' +
+          ["All"].concat(OWNERS).map(function (o) {
+            return '<button type="button" class="owner-pill' + (o === ownerFilter ? " active" : "") + '" data-owner-filter="' + o + '">' + (o === "All" ? "All owners" : o) + '</button>';
+          }).join("") +
+        '</div>' +
+        '<label class="hide-done-toggle"><input type="checkbox" id="hideDoneToggle"' + (hideDone ? " checked" : "") + '> Hide completed</label>' +
+      '</div>' +
+      (visible.length === 0
+        ? '<div class="empty-state">Nothing here yet — add a note, task, checklist item, or milestone above.</div>'
+        : '<div class="timeline">' + rows.join("") + '</div>')
+    );
+  }
+
+  function renderAddPanel() {
+    var type = state._addType || "note";
+    var typeBtns = ["note", "task", "checklist", "milestone"].map(function (t) {
+      var label = t === "note" ? "Note" : t === "task" ? "Task" : t === "checklist" ? "Checklist" : "Milestone";
+      return '<button type="button" class="type-btn' + (type === t ? " active" : "") + '" data-add-type="' + t + '">' + label + '</button>';
+    }).join("");
+
+    var fields = "";
+    if (type === "note") {
+      fields =
+        '<div class="form-grid">' +
+          '<div class="field"><label for="eDate">Date</label><input type="date" id="eDate" value="' + todayISO() + '" required></div>' +
+        '</div>' +
+        '<div class="field" style="margin-top:10px"><label for="eText">Note</label><textarea id="eText" placeholder="What happened, was decided, or needs follow-up…" required></textarea></div>';
+    } else if (type === "task") {
+      fields =
+        '<div class="form-grid">' +
+          '<div class="field wide"><label for="eTitle">Task</label><input type="text" id="eTitle" placeholder="e.g. Verify Reference [37] against the journal issue" required></div>' +
+          '<div class="field"><label for="eOwner">Owner</label><select id="eOwner">' + OWNERS.map(function (o) { return '<option value="' + o + '">' + o + '</option>'; }).join("") + '</select></div>' +
+          '<div class="field"><label for="eDate">Deadline</label><input type="date" id="eDate" value="' + todayISO() + '" required></div>' +
+        '</div>';
+    } else if (type === "checklist") {
+      fields =
+        '<div class="field wide"><label for="eText">Item</label><input type="text" id="eText" placeholder="e.g. Get NFHS dataset" required></div>';
+    } else {
+      fields =
+        '<div class="form-grid">' +
+          '<div class="field"><label for="ePhase">Phase</label><input type="text" id="ePhase" placeholder="4.7" required></div>' +
+          '<div class="field"><label for="eDate">Deadline (optional)</label><input type="date" id="eDate"></div>' +
+          '<div class="field wide"><label for="eLabel">Description</label><input type="text" id="eLabel" placeholder="What this phase covers" required></div>' +
+        '</div>';
+    }
+
+    return (
+      '<div class="form-panel">' +
+        '<h3>Add to timeline</h3>' +
+        '<div class="type-toggle" id="typeToggle">' + typeBtns + '</div>' +
+        '<form id="entryForm">' + fields + '<div class="form-actions"><button type="submit" class="btn btn-primary">Add</button></div></form>' +
+      '</div>'
+    );
+  }
+
+  function renderEntry(e) {
+    var dot = entryDot(e);
+    if (e.type === "note") {
+      return (
+        '<div class="t-item"><div class="t-dot note"></div>' +
+        '<div class="t-date">' + fmtDate(e.date) + ' · Note</div>' +
+        '<div class="t-note-text">' + esc(e.text) + '</div>' +
+        '<div class="t-meta"><button class="icon-btn" data-del-entry="' + e.id + '" aria-label="Delete note">' + ICON_TRASH + '</button></div>' +
+        '</div>'
+      );
+    }
+    if (e.type === "task") {
+      var checked = e.status === "Done";
+      return (
+        '<div class="t-item"><div class="t-dot ' + dot + '"></div>' +
+        '<div class="t-date">' + fmtDate(e.date) + ' · Task</div>' +
+        '<div class="t-title' + (checked ? " done-text" : "") + '">' + esc(e.title) + '</div>' +
+        '<div class="t-meta">' +
+          '<div class="task-check' + (checked ? ' checked' : '') + '" data-toggle-entry="' + e.id + '" aria-label="Toggle done">' + (checked ? ICON_CHECK : '') + '</div>' +
+          '<span class="pill ' + pillClass(e.owner) + '">' + e.owner + '</span>' +
+          '<span class="status-tag status-' + dot + '">' + statusLabel(dot) + '</span>' +
+          '<button class="icon-btn" data-del-entry="' + e.id + '" aria-label="Delete task">' + ICON_TRASH + '</button>' +
+        '</div>' +
+        '</div>'
+      );
+    }
+    if (e.type === "checklist") {
+      var cChecked = e.status === "Done";
+      var showTag = cChecked || !!e.date;
+      return (
+        '<div class="t-item"><div class="t-dot ' + dot + '"></div>' +
+        '<div class="t-date">' + fmtDate(e.date) + ' · Checklist</div>' +
+        '<div class="t-title' + (cChecked ? " done-text" : "") + '">' + esc(e.text) + '</div>' +
+        '<div class="t-meta">' +
+          '<div class="task-check' + (cChecked ? ' checked' : '') + '" data-toggle-entry="' + e.id + '" aria-label="Toggle done">' + (cChecked ? ICON_CHECK : '') + '</div>' +
+          (e.owner ? '<span class="pill ' + pillClass(e.owner) + '">' + e.owner + '</span>' : '') +
+          (showTag ? '<span class="status-tag status-' + dot + '">' + statusLabel(dot) + '</span>' : '') +
+          '<button class="icon-btn" data-del-entry="' + e.id + '" aria-label="Delete item">' + ICON_TRASH + '</button>' +
+        '</div>' +
+        '</div>'
+      );
+    }
+    // milestone
+    var overdueNotDone = dot === "overdue";
+    return (
+      '<div class="t-item"><div class="t-dot ' + dot + '"></div>' +
+      '<div class="t-date"' + (overdueNotDone ? ' style="color:var(--berry);font-weight:600"' : '') + '>' + fmtDate(e.date) + ' · Phase ' + esc(e.phase) + '</div>' +
+      '<div class="t-title">' + esc(e.label) + '</div>' +
+      '<div class="t-meta">' +
+        '<span class="status-tag ' + milestoneStatusClass(e.status) + '">' + esc(e.status) + '</span>' +
+        '<select data-milestone-status="' + e.id + '" style="width:auto;font-size:11.5px;padding:3px 6px">' +
+          MILESTONE_STATUSES.map(function (s) { return '<option value="' + s + '"' + (s === e.status ? " selected" : "") + '>' + s + '</option>'; }).join("") +
+        '</select>' +
+        '<button class="icon-btn" data-del-entry="' + e.id + '" aria-label="Delete milestone">' + ICON_TRASH + '</button>' +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  /* ---------------- Checklist ----------------
+     Sourced straight from state.entries (type:"checklist") — there is no
+     separate checklist store, so ticking/adding/deleting here IS the same
+     write as the Timeline feed sees. Sorted by deadline (undated items last).
+  --------------------------------------------------------------------------- */
+  function viewChecklist() {
+    var items = activeEntries().filter(function (e) { return e.type === "checklist"; })
+      .slice().sort(function (a, b) {
+        var da = (a.date || NO_DATE), db = (b.date || NO_DATE);
+        return da < db ? -1 : da > db ? 1 : 0;
+      });
+
+    var rows = items.map(function (item) {
+      var checked = item.status === "Done";
+      var dot = checked ? "done" : (item.date ? dateStatus(item.date) : null);
+      var menuOpen = state._openMenu === item.id;
+      return (
+        '<div class="checklist-row">' +
+          '<div class="task-check' + (checked ? ' checked' : '') + '" data-toggle-entry="' + item.id + '" aria-label="Toggle done">' +
+            (checked ? ICON_CHECK : '') +
+          '</div>' +
+          '<div class="checklist-text' + (checked ? ' checked' : '') + '">' + esc(item.text) + '</div>' +
+          (item.owner ? '<span class="pill ' + pillClass(item.owner) + '">' + item.owner + '</span>' : '') +
+          (item.date ? '<span class="date-chip">' + fmtDateShort(item.date) + '</span>' : '') +
+          (dot ? '<span class="status-tag status-' + dot + '">' + statusLabel(dot) + '</span>' : '') +
+          '<div class="checklist-menu-wrap">' +
+            '<button type="button" class="icon-btn menu-btn" data-menu-toggle="' + item.id + '" aria-label="More options">' + ICON_DOTS + '</button>' +
+            (menuOpen ? renderChecklistMenu(item) : '') +
+          '</div>' +
+        '</div>'
+      );
+    }).join("");
+
+    return (
+      '<div class="view-head"><h2 class="display">Checklist</h2><p>Check things off — every change also shows up on the Timeline.</p></div>' +
+      '<div class="checklist-card">' +
+        (items.length === 0 ? '<div class="empty-state">No checklist items yet — add one below.</div>' : rows) +
+      '</div>' +
+      '<div class="add-inline">' +
+        '<input type="text" id="newCheckItem" placeholder="Add a checklist item…">' +
+        '<button class="btn btn-ghost" id="addCheckBtn">Add</button>' +
+      '</div>'
+    );
+  }
+
+  function renderChecklistMenu(item) {
+    return (
+      '<div class="checklist-menu" data-menu-panel="' + item.id + '">' +
+        '<label for="deadline-' + item.id + '">Deadline</label>' +
+        '<input type="date" id="deadline-' + item.id + '" data-set-deadline="' + item.id + '" value="' + esc(item.date || "") + '">' +
+        (item.date ? '<button type="button" class="menu-link" data-clear-deadline="' + item.id + '">Remove date</button>' : '') +
+        '<label for="owner-' + item.id + '">Assigned to</label>' +
+        '<select id="owner-' + item.id + '" data-set-owner="' + item.id + '">' +
+          '<option value="">— None —</option>' +
+          OWNERS.map(function (o) { return '<option value="' + o + '"' + (o === item.owner ? " selected" : "") + '>' + o + '</option>'; }).join("") +
+        '</select>' +
+        '<button type="button" class="menu-delete" data-del-entry="' + item.id + '">Delete item</button>' +
+      '</div>'
+    );
+  }
+
+  /* ---------------- events ---------------- */
+  function bindViewEvents() {
+    // type toggle
+    Array.prototype.forEach.call(document.querySelectorAll("[data-add-type]"), function (btn) {
+      btn.addEventListener("click", function () {
+        state._addType = btn.getAttribute("data-add-type");
+        render();
+      });
+    });
+
+    // owner filter
+    Array.prototype.forEach.call(document.querySelectorAll("[data-owner-filter]"), function (btn) {
+      btn.addEventListener("click", function () {
+        state._ownerFilter = btn.getAttribute("data-owner-filter");
+        render();
+      });
+    });
+    var hideDoneToggle = document.getElementById("hideDoneToggle");
+    if (hideDoneToggle) hideDoneToggle.addEventListener("change", function () { state._hideDone = hideDoneToggle.checked; render(); });
+
+    // add entry
+    var entryForm = document.getElementById("entryForm");
+    if (entryForm) {
+      entryForm.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var type = state._addType || "note";
+        var entry = { id: uid(), type: type, updatedAt: Date.now() };
+        if (type === "note") {
+          entry.date = document.getElementById("eDate").value;
+          entry.text = document.getElementById("eText").value.trim();
+          if (!entry.text) return;
+        } else if (type === "task") {
+          entry.title = document.getElementById("eTitle").value.trim();
+          if (!entry.title) return;
+          entry.owner = document.getElementById("eOwner").value;
+          entry.date = document.getElementById("eDate").value;
+          entry.status = "Open";
+        } else if (type === "checklist") {
+          entry.text = document.getElementById("eText").value.trim();
+          if (!entry.text) return;
+          entry.date = "";
+          entry.owner = "";
+          entry.status = "Open";
+        } else {
+          entry.phase = document.getElementById("ePhase").value.trim();
+          entry.label = document.getElementById("eLabel").value.trim();
+          if (!entry.phase || !entry.label) return;
+          entry.date = document.getElementById("eDate").value || "";
+          entry.status = "Not started";
+        }
+        state.entries.push(entry);
+        persistEntries();
+        render();
+      });
+    }
+
+    // toggles both task AND checklist entries (Done/Open) — this single handler
+    // is what makes checking a box on the Checklist tab show up on the Timeline
+    Array.prototype.forEach.call(document.querySelectorAll("[data-toggle-entry]"), function (el) {
+      el.addEventListener("click", function () {
+        var id = el.getAttribute("data-toggle-entry");
+        var t = state.entries.find(function (x) { return x.id === id; });
+        if (t) { t.status = t.status === "Done" ? "Open" : "Done"; t.updatedAt = Date.now(); }
+        persistEntries();
+        render();
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-milestone-status]"), function (el) {
+      el.addEventListener("change", function () {
+        var id = el.getAttribute("data-milestone-status");
+        var m = state.entries.find(function (x) { return x.id === id; });
+        if (m) { m.status = el.value; m.updatedAt = Date.now(); }
+        persistEntries();
+        render();
+      });
+    });
+    // set/clear a checklist item's deadline via the ⋮ menu
+    Array.prototype.forEach.call(document.querySelectorAll("[data-set-deadline]"), function (el) {
+      el.addEventListener("change", function () {
+        var id = el.getAttribute("data-set-deadline");
+        var it = state.entries.find(function (x) { return x.id === id; });
+        if (it) { it.date = el.value || ""; it.updatedAt = Date.now(); }
+        persistEntries();
+        render();
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-clear-deadline]"), function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-clear-deadline");
+        var it = state.entries.find(function (x) { return x.id === id; });
+        if (it) { it.date = ""; it.updatedAt = Date.now(); }
+        persistEntries();
+        render();
+      });
+    });
+    // assign/reassign/unassign a checklist item's person via the ⋮ menu
+    Array.prototype.forEach.call(document.querySelectorAll("[data-set-owner]"), function (el) {
+      el.addEventListener("change", function () {
+        var id = el.getAttribute("data-set-owner");
+        var it = state.entries.find(function (x) { return x.id === id; });
+        if (it) { it.owner = el.value || ""; it.updatedAt = Date.now(); }
+        persistEntries();
+        render();
+      });
+    });
+    // open/close the per-row ⋮ menu
+    Array.prototype.forEach.call(document.querySelectorAll("[data-menu-toggle]"), function (btn) {
+      btn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var id = btn.getAttribute("data-menu-toggle");
+        state._openMenu = state._openMenu === id ? null : id;
+        render();
+      });
+    });
+    // keep clicks inside an open menu from bubbling to the document closer
+    Array.prototype.forEach.call(document.querySelectorAll(".checklist-menu"), function (panel) {
+      panel.addEventListener("click", function (ev) { ev.stopPropagation(); });
+    });
+    // delete with a 5s undo window (soft-tombstone only happens if not undone)
+    Array.prototype.forEach.call(document.querySelectorAll("[data-del-entry]"), function (btn) {
+      btn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        requestDelete(btn.getAttribute("data-del-entry"));
+      });
+    });
+
+    // quick-add on the Checklist tab — pushes a normal type:"checklist" entry;
+    // deadline and person are set afterward via the row's ⋮ menu
+    var addCheckBtn = document.getElementById("addCheckBtn");
+    if (addCheckBtn) {
+      addCheckBtn.addEventListener("click", function () {
+        var input = document.getElementById("newCheckItem");
+        var val = input.value.trim();
+        if (!val) return;
+        state.entries.push({ id: uid(), type: "checklist", text: val, date: "", owner: "", status: "Open", updatedAt: Date.now() });
+        input.value = "";
+        persistEntries();
+        render();
+      });
+    }
+    var newCheckItem = document.getElementById("newCheckItem");
+    if (newCheckItem) {
+      newCheckItem.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); addCheckBtn.click(); }
+      });
+    }
+  }
+
+  init();
+})();
+</script>
