@@ -225,6 +225,7 @@
   .add-inline { display: flex; gap: 8px; margin-top: 12px; }
   .add-inline input[type=text] { flex: 1; }
   .add-inline input[type=date] { width: auto; max-width: 150px; flex-shrink: 0; }
+  .add-inline select { width: auto; max-width: 130px; flex-shrink: 0; }
   .date-chip {
     font-size: 11px; font-weight: 600; color: var(--muted); background: var(--cream);
     padding: 2px 8px; border-radius: 20px; flex-shrink: 0; white-space: nowrap;
@@ -256,6 +257,45 @@
   }
   .menu-delete:hover { background: var(--y-bg); }
 
+  /* ---------- Notes (sticky-note cards) ---------- */
+  .notes-toolbar { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+  .sort-toggle { display: flex; gap: 6px; }
+  .sort-btn {
+    padding: 5px 12px; border-radius: 20px; border: 1px solid var(--line); background: #fff;
+    color: var(--muted); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .sort-btn.active { background: var(--matcha); color: #fff; border-color: var(--matcha); }
+  .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .note-card {
+    background: var(--gold); border: 1px solid #EBC0C8; border-radius: 10px;
+    padding: 14px 14px 40px; position: relative; cursor: grab;
+    box-shadow: 0 2px 6px rgba(56,72,45,.08); min-height: 100px;
+  }
+  .note-card.dragging { opacity: .45; }
+  .note-card:active { cursor: grabbing; }
+  .note-date {
+    font-size: 11px; font-weight: 700; color: #855358; text-transform: uppercase;
+    letter-spacing: .04em; margin-bottom: 6px;
+  }
+  .note-text { font-size: 13.5px; color: #38482D; white-space: pre-wrap; }
+  .note-del { position: absolute; bottom: 8px; right: 8px; }
+  .fab {
+    position: fixed; right: 40px; bottom: 30px; width: 52px; height: 52px; border-radius: 50%;
+    background: var(--matcha); color: #fff; font-size: 26px; border: none; cursor: pointer;
+    box-shadow: 0 6px 18px rgba(56,72,45,.35); display: flex; align-items: center; justify-content: center;
+    line-height: 1; transition: transform .15s ease, background .15s ease;
+  }
+  .fab:hover { background: var(--matcha-ink); transform: scale(1.06); }
+  .note-popup-overlay {
+    position: fixed; inset: 0; background: rgba(56,72,45,0.35);
+    display: flex; align-items: center; justify-content: center; z-index: 150;
+  }
+  .note-popup {
+    background: #fff; border-radius: 12px; padding: 20px 22px; width: 340px; max-width: 90vw;
+    box-shadow: 0 12px 40px rgba(0,0,0,.25);
+  }
+  .note-popup h3 { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+
   /* ---------- Undo toast ---------- */
   .toast-area {
     position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
@@ -285,6 +325,8 @@
     .form-grid { grid-template-columns: 1fr; }
     .checklist-row { flex-wrap: wrap; }
     .checklist-deadline-input { max-width: 120px; }
+    .notes-grid { grid-template-columns: 1fr 1fr; }
+    .fab { right: 20px; bottom: 20px; }
   }
 </style>
 
@@ -359,17 +401,19 @@
   var POLL_MS = 20000;
 
   var state = {
-    entries: [],       // single source of truth — notes, tasks, milestones, AND checklist items
+    entries: [],       // single source of truth — notes, checklist items, AND milestones
                         // (checklist items are entries with type:"checklist"; the Checklist tab
                         // is just a filtered view over them, so ticking one off updates the
                         // Timeline immediately — same record, not a separate synced copy)
     view: "checklist",
     storageOK: false,
-    _addType: "task",
+    _addType: "checklist",
     _ownerFilter: "All",
     _hideDone: false,
     _openMenu: null,      // id of the checklist row whose ⋮ menu is open
-    _hidingIds: {}         // ids currently mid-undo-window, hidden but not yet deleted
+    _hidingIds: {},        // ids currently mid-undo-window, hidden but not yet deleted
+    _noteSort: "desc",     // "desc" = newest first, "asc" = oldest first
+    _noteFormOpen: false   // whether the add-note popup is open
   };
 
   function activeEntries() {
@@ -419,14 +463,13 @@
   }
   function entryDot(e) {
     if (e.type === "note") return "note";
-    if (e.type === "task") return e.status === "Done" ? "done" : dateStatus(e.date);
     if (e.type === "checklist") return e.status === "Done" ? "done" : dateStatus(e.date);
     return e.status === "Complete" ? "done" : dateStatus(e.date);
   }
 
   /* ---------------- date grouping ----------------
      Entries sharing the same date are gathered into one group so the
-     Timeline / Notes feed shows a single date + dot with all of that
+     Timeline feed shows a single date + dot with all of that
      day's items sitting alongside each other, instead of each item
      repeating its own full date line one after another.
      Assumes `list` is already sorted by date, so equal dates are adjacent.
@@ -536,10 +579,10 @@
      does the entry actually get tombstoned and pushed to storage.
   --------------------------------------------------------------------------- */
   var pendingDeleteTimers = {};
+  var draggedNoteId = null;
 
   function labelFor(entry) {
     if (entry.type === "note") return "Note";
-    if (entry.type === "task") return "Task";
     if (entry.type === "checklist") return "Checklist item";
     return "Milestone";
   }
@@ -655,6 +698,15 @@
         state.entries = loadedEntries;
       }
 
+      // Migration: fold any legacy "task" entries (from before task/checklist
+      // were merged) into "checklist", so nothing from an older board is lost.
+      state.entries = state.entries.map(function (e) {
+        if (e && e.type === "task") {
+          return { id: e.id, type: "checklist", text: e.title || "", owner: e.owner || "", date: e.date || "", status: e.status || "Open", updatedAt: e.updatedAt || Date.now() };
+        }
+        return e;
+      });
+
       // One-time migration: fold any old-format checklist array (from before
       // checklist items lived in `entries`) into entries so nothing is lost.
       if (Array.isArray(legacyChecklist) && legacyChecklist.length) {
@@ -706,25 +758,24 @@
   }
 
   /* ---------------- Timeline ----------------
-     Only tasks, checklist items, and milestones live here — notes have
-     their own tab now. Entries sharing the same date are grouped under
-     one date/dot so they sit alongside each other instead of each
-     repeating a full date line, one after another.
+     Checklist items and milestones live here — notes have their own tab.
+     Entries sharing the same date are grouped under one date/dot so they
+     sit alongside each other instead of each repeating a full date line,
+     one after another.
   --------------------------------------------------------------------- */
   function viewTimeline() {
     var all = activeEntries().filter(function (e) { return e.type !== "note"; });
-    var tasks = all.filter(function (e) { return e.type === "task"; });
-    var openTasks = tasks.filter(function (t) { return t.status !== "Done"; });
-    var overdue = openTasks.filter(function (t) { return t.date && dateStatus(t.date) === "overdue"; });
+    var checklistItems = all.filter(function (e) { return e.type === "checklist"; });
+    var openItems = checklistItems.filter(function (t) { return t.status !== "Done"; });
+    var overdue = openItems.filter(function (t) { return t.date && dateStatus(t.date) === "overdue"; });
 
     var ownerFilter = state._ownerFilter || "All";
     var hideDone = !!state._hideDone;
     var visible = all.filter(function (e) {
-      if (e.type === "task") {
+      if (e.type === "checklist") {
         if (ownerFilter !== "All" && e.owner !== ownerFilter) return false;
         if (hideDone && e.status === "Done") return false;
       }
-      if (e.type === "checklist" && hideDone && e.status === "Done") return false;
       if (e.type === "milestone" && hideDone && e.status === "Complete") return false;
       return true;
     }).slice().sort(function (a, b) {
@@ -746,9 +797,9 @@
     if (!insertedToday) rows.push(todayLineHTML(today));
 
     return (
-      '<div class="view-head"><h2 class="display">Timeline</h2><p>Action items and milestones — one feed, in order. Same-day items sit side by side.</p></div>' +
+      '<div class="view-head"><h2 class="display">Timeline</h2><p>Checklist items and milestones — one feed, in order. Same-day items sit side by side.</p></div>' +
       '<div class="tiles">' +
-        '<div class="tile"><div class="num">' + openTasks.length + '</div><div class="label">Open tasks</div></div>' +
+        '<div class="tile"><div class="num">' + openItems.length + '</div><div class="label">Open items</div></div>' +
         '<div class="tile tile-blossom"><div class="num">' + overdue.length + '</div><div class="label">Overdue</div></div>' +
         '<div class="tile tile-mint"><div class="num">' + all.length + '</div><div class="label">Logged entries</div></div>' +
       '</div>' +
@@ -762,29 +813,26 @@
         '<label class="hide-done-toggle"><input type="checkbox" id="hideDoneToggle"' + (hideDone ? " checked" : "") + '> Hide completed</label>' +
       '</div>' +
       (visible.length === 0
-        ? '<div class="empty-state">Nothing here yet — add a task, checklist item, or milestone above.</div>'
+        ? '<div class="empty-state">Nothing here yet — add a checklist item or milestone above.</div>'
         : '<div class="timeline">' + rows.join("") + '</div>')
     );
   }
 
   function renderAddPanel() {
-    var type = state._addType || "task";
-    var typeBtns = ["task", "checklist", "milestone"].map(function (t) {
-      var label = t === "task" ? "Task" : t === "checklist" ? "Checklist" : "Milestone";
+    var type = state._addType || "checklist";
+    var typeBtns = ["checklist", "milestone"].map(function (t) {
+      var label = t === "checklist" ? "Checklist" : "Milestone";
       return '<button type="button" class="type-btn' + (type === t ? " active" : "") + '" data-add-type="' + t + '">' + label + '</button>';
     }).join("");
 
     var fields = "";
-    if (type === "task") {
+    if (type === "checklist") {
       fields =
         '<div class="form-grid">' +
-          '<div class="field wide"><label for="eTitle">Task</label><input type="text" id="eTitle" placeholder="e.g. Verify Reference [37] against the journal issue" required></div>' +
-          '<div class="field"><label for="eOwner">Owner</label><select id="eOwner">' + OWNERS.map(function (o) { return '<option value="' + o + '">' + o + '</option>'; }).join("") + '</select></div>' +
-          '<div class="field"><label for="eDate">Deadline</label><input type="date" id="eDate" value="' + todayISO() + '" required></div>' +
+          '<div class="field wide"><label for="eText">Item</label><input type="text" id="eText" placeholder="e.g. Get NFHS dataset" required></div>' +
+          '<div class="field"><label for="eOwner">Assigned to</label><select id="eOwner"><option value="">— Unassigned —</option>' + OWNERS.map(function (o) { return '<option value="' + o + '">' + o + '</option>'; }).join("") + '</select></div>' +
+          '<div class="field"><label for="eDate">Deadline (optional)</label><input type="date" id="eDate"></div>' +
         '</div>';
-    } else if (type === "checklist") {
-      fields =
-        '<div class="field wide"><label for="eText">Item</label><input type="text" id="eText" placeholder="e.g. Get NFHS dataset" required></div>';
     } else {
       fields =
         '<div class="form-grid">' +
@@ -817,20 +865,6 @@
   }
 
   function renderChip(e) {
-    if (e.type === "task") {
-      var checked = e.status === "Done";
-      var dot = entryDot(e);
-      return (
-        '<div class="t-chip">' +
-          '<div class="task-check' + (checked ? ' checked' : '') + '" data-toggle-entry="' + e.id + '" aria-label="Toggle done">' + (checked ? ICON_CHECK : '') + '</div>' +
-          '<span class="t-chip-type">Task</span>' +
-          '<span class="t-chip-title' + (checked ? " done-text" : "") + '">' + esc(e.title) + '</span>' +
-          '<span class="pill ' + pillClass(e.owner) + '">' + e.owner + '</span>' +
-          '<span class="status-tag status-' + dot + '">' + statusLabel(dot) + '</span>' +
-          '<button class="icon-btn" data-del-entry="' + e.id + '" aria-label="Delete task">' + ICON_TRASH + '</button>' +
-        '</div>'
-      );
-    }
     if (e.type === "checklist") {
       var cChecked = e.status === "Done";
       var cDot = entryDot(e);
@@ -900,6 +934,8 @@
       '</div>' +
       '<div class="add-inline">' +
         '<input type="text" id="newCheckItem" placeholder="Add a checklist item…">' +
+        '<select id="newCheckOwner"><option value="">— Unassigned —</option>' + OWNERS.map(function (o) { return '<option value="' + o + '">' + o + '</option>'; }).join("") + '</select>' +
+        '<input type="date" id="newCheckDeadline">' +
         '<button class="btn btn-ghost" id="addCheckBtn">Add</button>' +
       '</div>'
     );
@@ -922,66 +958,80 @@
   }
 
   /* ---------------- Notes ----------------
-     A running log, separate from the Timeline. Notes sharing the same
-     date are grouped under one date/dot too, same as the Timeline.
+     A simple sticky-note board, separate from the Timeline — no dates-as-
+     spine layout, just cards. Sort ascending/oldest or descending/newest,
+     and drag cards to reorder them manually.
   --------------------------------------------------------------------- */
-  function viewNotes() {
-    var notes = activeEntries().filter(function (e) { return e.type === "note"; })
-      .slice().sort(function (a, b) {
-        var da = (a.date || NO_DATE), db = (b.date || NO_DATE);
-        return da < db ? -1 : da > db ? 1 : 0;
-      });
+  function noteSortValue(e) {
+    return e.sortIndex != null ? e.sortIndex : (e.updatedAt || 0);
+  }
 
-    var today = todayISO();
-    var groups = groupEntriesByDate(notes);
-    var rows = [];
-    var insertedToday = false;
-    groups.forEach(function (g) {
-      if (!insertedToday && (g.date || NO_DATE) >= today) {
-        rows.push(todayLineHTML(today));
-        insertedToday = true;
-      }
-      rows.push(renderNoteGroup(g));
+  function sortedNotes() {
+    var dir = state._noteSort || "desc";
+    return activeEntries().filter(function (e) { return e.type === "note"; })
+      .slice().sort(function (a, b) {
+        var va = noteSortValue(a), vb = noteSortValue(b);
+        return dir === "asc" ? va - vb : vb - va;
+      });
+  }
+
+  function reorderNotes(draggedId, targetId) {
+    var dir = state._noteSort || "desc";
+    var notes = sortedNotes();
+    var fromIdx = notes.findIndex(function (n) { return n.id === draggedId; });
+    var toIdx = notes.findIndex(function (n) { return n.id === targetId; });
+    if (fromIdx === -1 || toIdx === -1) return;
+    var moved = notes.splice(fromIdx, 1)[0];
+    notes.splice(toIdx, 0, moved);
+    var n = notes.length;
+    notes.forEach(function (note, i) {
+      note.sortIndex = dir === "asc" ? i : (n - 1 - i);
+      note.updatedAt = Date.now();
     });
-    if (!insertedToday) rows.push(todayLineHTML(today));
+  }
+
+  function viewNotes() {
+    var sortDir = state._noteSort || "desc";
+    var notes = sortedNotes();
+    var cards = notes.map(renderNoteCard).join("");
 
     return (
-      '<div class="view-head"><h2 class="display">Notes</h2><p>A running log of updates, decisions, and context.</p></div>' +
-      renderNoteAddPanel() +
+      '<div class="view-head"><h2 class="display">Notes</h2><p>Quick sticky notes — drag a card to reorder it.</p></div>' +
+      '<div class="notes-toolbar">' +
+        '<div class="sort-toggle">' +
+          '<button type="button" class="sort-btn' + (sortDir === "desc" ? " active" : "") + '" data-note-sort="desc">Newest first</button>' +
+          '<button type="button" class="sort-btn' + (sortDir === "asc" ? " active" : "") + '" data-note-sort="asc">Oldest first</button>' +
+        '</div>' +
+      '</div>' +
       (notes.length === 0
-        ? '<div class="empty-state">No notes yet — add one above.</div>'
-        : '<div class="timeline">' + rows.join("") + '</div>')
+        ? '<div class="empty-state">No notes yet — click the + button to add one.</div>'
+        : '<div class="notes-grid" id="notesGrid">' + cards + '</div>') +
+      '<button type="button" class="fab" id="addNoteFab" aria-label="Add note">+</button>' +
+      (state._noteFormOpen ? renderNotePopup() : '')
     );
   }
 
-  function renderNoteGroup(g) {
+  function renderNoteCard(e) {
     return (
-      '<div class="t-item">' +
-        '<div class="t-dot note"></div>' +
-        '<div class="t-date">' + fmtDate(g.date) + '</div>' +
-        g.items.map(function (e) {
-          return (
-            '<div class="t-note-text">' + esc(e.text) + '</div>' +
-            '<div class="t-meta" style="margin-bottom:10px">' +
-              '<button class="icon-btn" data-del-entry="' + e.id + '" aria-label="Delete note">' + ICON_TRASH + '</button>' +
-            '</div>'
-          );
-        }).join("") +
+      '<div class="note-card" draggable="true" data-note-id="' + e.id + '">' +
+        '<div class="note-date">' + fmtDateShort(e.date) + '</div>' +
+        '<div class="note-text">' + esc(e.text) + '</div>' +
+        '<button class="icon-btn note-del" data-del-entry="' + e.id + '" aria-label="Delete note">' + ICON_TRASH + '</button>' +
       '</div>'
     );
   }
 
-  function renderNoteAddPanel() {
+  function renderNotePopup() {
     return (
-      '<div class="form-panel">' +
-        '<h3>Add a note</h3>' +
-        '<form id="noteForm">' +
-          '<div class="form-grid">' +
+      '<div class="note-popup-overlay" id="notePopupOverlay">' +
+        '<div class="note-popup">' +
+          '<h3>Add a note</h3>' +
+          '<form id="noteForm">' +
             '<div class="field"><label for="nDate">Date</label><input type="date" id="nDate" value="' + todayISO() + '" required></div>' +
-          '</div>' +
-          '<div class="field" style="margin-top:10px"><label for="nText">Note</label><textarea id="nText" placeholder="What happened, was decided, or needs follow-up…" required></textarea></div>' +
-          '<div class="form-actions"><button type="submit" class="btn btn-primary">Add</button></div>' +
-        '</form>' +
+            '<div class="field" style="margin-top:10px"><label for="nText">Note</label><textarea id="nText" placeholder="Jot something down…" required></textarea></div>' +
+            '<div class="form-actions"><button type="submit" class="btn btn-primary">Add</button><button type="button" class="btn btn-ghost" id="cancelNoteBtn">Cancel</button></div>' +
+          '</form>' +
+        '</div>' +
       '</div>'
     );
   }
@@ -1006,24 +1056,18 @@
     var hideDoneToggle = document.getElementById("hideDoneToggle");
     if (hideDoneToggle) hideDoneToggle.addEventListener("change", function () { state._hideDone = hideDoneToggle.checked; render(); });
 
-    // add entry (Timeline: task / checklist / milestone)
+    // add entry (Timeline: checklist / milestone)
     var entryForm = document.getElementById("entryForm");
     if (entryForm) {
       entryForm.addEventListener("submit", function (ev) {
         ev.preventDefault();
-        var type = state._addType || "task";
+        var type = state._addType || "checklist";
         var entry = { id: uid(), type: type, updatedAt: Date.now() };
-        if (type === "task") {
-          entry.title = document.getElementById("eTitle").value.trim();
-          if (!entry.title) return;
-          entry.owner = document.getElementById("eOwner").value;
-          entry.date = document.getElementById("eDate").value;
-          entry.status = "Open";
-        } else if (type === "checklist") {
+        if (type === "checklist") {
           entry.text = document.getElementById("eText").value.trim();
           if (!entry.text) return;
-          entry.date = "";
-          entry.owner = "";
+          entry.owner = document.getElementById("eOwner").value || "";
+          entry.date = document.getElementById("eDate").value || "";
           entry.status = "Open";
         } else {
           entry.phase = document.getElementById("ePhase").value.trim();
@@ -1038,22 +1082,73 @@
       });
     }
 
-    // add entry (Notes tab)
+    // add entry (Notes popup)
     var noteForm = document.getElementById("noteForm");
     if (noteForm) {
       noteForm.addEventListener("submit", function (ev) {
         ev.preventDefault();
         var text = document.getElementById("nText").value.trim();
         if (!text) return;
-        var entry = { id: uid(), type: "note", date: document.getElementById("nDate").value, text: text, updatedAt: Date.now() };
+        var entry = { id: uid(), type: "note", date: document.getElementById("nDate").value, text: text, sortIndex: Date.now(), updatedAt: Date.now() };
         state.entries.push(entry);
+        state._noteFormOpen = false;
         persistEntries();
         render();
       });
     }
+    var cancelNoteBtn = document.getElementById("cancelNoteBtn");
+    if (cancelNoteBtn) {
+      cancelNoteBtn.addEventListener("click", function () {
+        state._noteFormOpen = false;
+        render();
+      });
+    }
+    var notePopupOverlay = document.getElementById("notePopupOverlay");
+    if (notePopupOverlay) {
+      notePopupOverlay.addEventListener("click", function (ev) {
+        if (ev.target === notePopupOverlay) { state._noteFormOpen = false; render(); }
+      });
+      var notePopupInner = notePopupOverlay.querySelector(".note-popup");
+      if (notePopupInner) notePopupInner.addEventListener("click", function (ev) { ev.stopPropagation(); });
+    }
+    var addNoteFab = document.getElementById("addNoteFab");
+    if (addNoteFab) {
+      addNoteFab.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        state._noteFormOpen = true;
+        render();
+      });
+    }
+    // note sort toggle
+    Array.prototype.forEach.call(document.querySelectorAll("[data-note-sort]"), function (btn) {
+      btn.addEventListener("click", function () {
+        state._noteSort = btn.getAttribute("data-note-sort");
+        render();
+      });
+    });
+    // drag-and-drop reordering for note cards
+    Array.prototype.forEach.call(document.querySelectorAll(".note-card"), function (card) {
+      card.addEventListener("dragstart", function () {
+        draggedNoteId = card.getAttribute("data-note-id");
+        card.classList.add("dragging");
+      });
+      card.addEventListener("dragend", function () {
+        card.classList.remove("dragging");
+      });
+      card.addEventListener("dragover", function (ev) { ev.preventDefault(); });
+      card.addEventListener("drop", function (ev) {
+        ev.preventDefault();
+        var targetId = card.getAttribute("data-note-id");
+        if (!draggedNoteId || draggedNoteId === targetId) return;
+        reorderNotes(draggedNoteId, targetId);
+        draggedNoteId = null;
+        persistEntries();
+        render();
+      });
+    });
 
-    // toggles both task AND checklist entries (Done/Open) — this single handler
-    // is what makes checking a box on the Checklist tab show up on the Timeline
+    // toggles checklist entries (Done/Open) — this single handler is what
+    // makes checking a box on the Checklist tab show up on the Timeline
     Array.prototype.forEach.call(document.querySelectorAll("[data-toggle-entry]"), function (el) {
       el.addEventListener("click", function () {
         var id = el.getAttribute("data-toggle-entry");
@@ -1122,16 +1217,25 @@
       });
     });
 
-    // quick-add on the Checklist tab — pushes a normal type:"checklist" entry;
-    // deadline and person are set afterward via the row's ⋮ menu
+    // quick-add on the Checklist tab — pushes a normal type:"checklist" entry
+    // with owner + deadline included directly (no need to open the ⋮ menu)
     var addCheckBtn = document.getElementById("addCheckBtn");
     if (addCheckBtn) {
       addCheckBtn.addEventListener("click", function () {
         var input = document.getElementById("newCheckItem");
+        var ownerSel = document.getElementById("newCheckOwner");
+        var deadlineInput = document.getElementById("newCheckDeadline");
         var val = input.value.trim();
         if (!val) return;
-        state.entries.push({ id: uid(), type: "checklist", text: val, date: "", owner: "", status: "Open", updatedAt: Date.now() });
+        state.entries.push({
+          id: uid(), type: "checklist", text: val,
+          date: deadlineInput ? deadlineInput.value : "",
+          owner: ownerSel ? ownerSel.value : "",
+          status: "Open", updatedAt: Date.now()
+        });
         input.value = "";
+        if (ownerSel) ownerSel.value = "";
+        if (deadlineInput) deadlineInput.value = "";
         persistEntries();
         render();
       });
