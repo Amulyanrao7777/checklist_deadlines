@@ -124,6 +124,21 @@
     font-size: 10.5px; font-weight: 700; color: var(--berry); letter-spacing: .06em; text-transform: uppercase;
   }
 
+  /* ---------- Same-date group (multiple entries sharing one date/dot) ---------- */
+  .t-group-items { display: flex; flex-wrap: wrap; gap: 8px 10px; margin-top: 7px; }
+  .t-chip {
+    display: flex; align-items: center; gap: 7px;
+    background: #fff; border: 1px solid var(--line); border-radius: 9px;
+    padding: 6px 9px 6px 7px; max-width: 100%;
+  }
+  .t-chip-type {
+    font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .03em; white-space: nowrap;
+  }
+  .t-chip-title { font-size: 13px; font-weight: 500; }
+  .t-chip-title.done-text { color: var(--muted); text-decoration: line-through; font-weight: 400; }
+  .t-chip select { padding: 3px 5px; font-size: 11.5px; }
+
   /* ---------- Pills / tags ---------- */
   .pill {
     display: inline-flex; align-items: center; justify-content: center;
@@ -298,11 +313,13 @@
   var ICON_DOTS = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>';
   var ICONS = {
     timeline: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>',
-    checklist: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 7h2M5 12h2M5 17h2"/><path d="M10 7h9M10 12h9M10 17h9"/></svg>'
+    checklist: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 7h2M5 12h2M5 17h2"/><path d="M10 7h9M10 12h9M10 17h9"/></svg>',
+    notes: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h9l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>'
   };
   var NAV_ITEMS = [
     { id: "checklist", label: "Checklist" },
-    { id: "timeline", label: "Timeline" }
+    { id: "timeline", label: "Timeline" },
+    { id: "notes", label: "Notes" }
   ];
   var OWNERS = ["A", "V", "Y"];
   var MILESTONE_STATUSES = ["Not started", "In progress", "Complete"];
@@ -348,7 +365,7 @@
                         // Timeline immediately — same record, not a separate synced copy)
     view: "checklist",
     storageOK: false,
-    _addType: "note",
+    _addType: "task",
     _ownerFilter: "All",
     _hideDone: false,
     _openMenu: null,      // id of the checklist row whose ⋮ menu is open
@@ -405,6 +422,37 @@
     if (e.type === "task") return e.status === "Done" ? "done" : dateStatus(e.date);
     if (e.type === "checklist") return e.status === "Done" ? "done" : dateStatus(e.date);
     return e.status === "Complete" ? "done" : dateStatus(e.date);
+  }
+
+  /* ---------------- date grouping ----------------
+     Entries sharing the same date are gathered into one group so the
+     Timeline / Notes feed shows a single date + dot with all of that
+     day's items sitting alongside each other, instead of each item
+     repeating its own full date line one after another.
+     Assumes `list` is already sorted by date, so equal dates are adjacent.
+  --------------------------------------------------- */
+  function groupEntriesByDate(list) {
+    var groups = [];
+    list.forEach(function (e) {
+      var key = e.date || "";
+      var last = groups[groups.length - 1];
+      if (last && last.date === key) {
+        last.items.push(e);
+      } else {
+        groups.push({ date: key, items: [e] });
+      }
+    });
+    return groups;
+  }
+  function groupDotStatus(items) {
+    var statuses = items.map(entryDot);
+    if (statuses.indexOf("overdue") !== -1) return "overdue";
+    if (statuses.indexOf("soon") !== -1) return "soon";
+    if (statuses.every(function (s) { return s === "done"; })) return "done";
+    return "ontrack";
+  }
+  function todayLineHTML(today) {
+    return '<div class="today-line"><span>Today · ' + fmtDateShort(today) + '</span><div class="dash"></div></div>';
   }
 
   /* ---------------- storage (Supabase) ---------------- */
@@ -653,13 +701,18 @@
 
   function render() {
     var main = document.getElementById("main");
-    main.innerHTML = state.view === "timeline" ? viewTimeline() : viewChecklist();
+    main.innerHTML = state.view === "timeline" ? viewTimeline() : state.view === "notes" ? viewNotes() : viewChecklist();
     bindViewEvents();
   }
 
-  /* ---------------- Timeline ---------------- */
+  /* ---------------- Timeline ----------------
+     Only tasks, checklist items, and milestones live here — notes have
+     their own tab now. Entries sharing the same date are grouped under
+     one date/dot so they sit alongside each other instead of each
+     repeating a full date line, one after another.
+  --------------------------------------------------------------------- */
   function viewTimeline() {
-    var all = activeEntries();
+    var all = activeEntries().filter(function (e) { return e.type !== "note"; });
     var tasks = all.filter(function (e) { return e.type === "task"; });
     var openTasks = tasks.filter(function (t) { return t.status !== "Done"; });
     var overdue = openTasks.filter(function (t) { return t.date && dateStatus(t.date) === "overdue"; });
@@ -680,22 +733,20 @@
     });
 
     var today = todayISO();
-    var todayInserted = visible.length === 0 || visible[0].date > today ? false : null;
+    var groups = groupEntriesByDate(visible);
     var rows = [];
     var insertedToday = false;
-    visible.forEach(function (e) {
-      if (!insertedToday && (e.date || NO_DATE) >= today) {
-        rows.push('<div class="today-line"><span>Today · ' + fmtDateShort(today) + '</span><div class="dash"></div></div>');
+    groups.forEach(function (g) {
+      if (!insertedToday && (g.date || NO_DATE) >= today) {
+        rows.push(todayLineHTML(today));
         insertedToday = true;
       }
-      rows.push(renderEntry(e));
+      rows.push(renderGroup(g));
     });
-    if (!insertedToday) {
-      rows.push('<div class="today-line"><span>Today · ' + fmtDateShort(today) + '</span><div class="dash"></div></div>');
-    }
+    if (!insertedToday) rows.push(todayLineHTML(today));
 
     return (
-      '<div class="view-head"><h2 class="display">Timeline</h2><p>Notes, action items, milestones, and checklist activity — one feed, in order.</p></div>' +
+      '<div class="view-head"><h2 class="display">Timeline</h2><p>Action items and milestones — one feed, in order. Same-day items sit side by side.</p></div>' +
       '<div class="tiles">' +
         '<div class="tile"><div class="num">' + openTasks.length + '</div><div class="label">Open tasks</div></div>' +
         '<div class="tile tile-blossom"><div class="num">' + overdue.length + '</div><div class="label">Overdue</div></div>' +
@@ -711,26 +762,20 @@
         '<label class="hide-done-toggle"><input type="checkbox" id="hideDoneToggle"' + (hideDone ? " checked" : "") + '> Hide completed</label>' +
       '</div>' +
       (visible.length === 0
-        ? '<div class="empty-state">Nothing here yet — add a note, task, checklist item, or milestone above.</div>'
+        ? '<div class="empty-state">Nothing here yet — add a task, checklist item, or milestone above.</div>'
         : '<div class="timeline">' + rows.join("") + '</div>')
     );
   }
 
   function renderAddPanel() {
-    var type = state._addType || "note";
-    var typeBtns = ["note", "task", "checklist", "milestone"].map(function (t) {
-      var label = t === "note" ? "Note" : t === "task" ? "Task" : t === "checklist" ? "Checklist" : "Milestone";
+    var type = state._addType || "task";
+    var typeBtns = ["task", "checklist", "milestone"].map(function (t) {
+      var label = t === "task" ? "Task" : t === "checklist" ? "Checklist" : "Milestone";
       return '<button type="button" class="type-btn' + (type === t ? " active" : "") + '" data-add-type="' + t + '">' + label + '</button>';
     }).join("");
 
     var fields = "";
-    if (type === "note") {
-      fields =
-        '<div class="form-grid">' +
-          '<div class="field"><label for="eDate">Date</label><input type="date" id="eDate" value="' + todayISO() + '" required></div>' +
-        '</div>' +
-        '<div class="field" style="margin-top:10px"><label for="eText">Note</label><textarea id="eText" placeholder="What happened, was decided, or needs follow-up…" required></textarea></div>';
-    } else if (type === "task") {
+    if (type === "task") {
       fields =
         '<div class="form-grid">' +
           '<div class="field wide"><label for="eTitle">Task</label><input type="text" id="eTitle" placeholder="e.g. Verify Reference [37] against the journal issue" required></div>' +
@@ -758,61 +803,59 @@
     );
   }
 
-  function renderEntry(e) {
-    var dot = entryDot(e);
-    if (e.type === "note") {
-      return (
-        '<div class="t-item"><div class="t-dot note"></div>' +
-        '<div class="t-date">' + fmtDate(e.date) + ' · Note</div>' +
-        '<div class="t-note-text">' + esc(e.text) + '</div>' +
-        '<div class="t-meta"><button class="icon-btn" data-del-entry="' + e.id + '" aria-label="Delete note">' + ICON_TRASH + '</button></div>' +
-        '</div>'
-      );
-    }
+  /* one date + dot, all of that day's items alongside each other as chips */
+  function renderGroup(g) {
+    var dot = groupDotStatus(g.items);
+    var overdueStyle = dot === "overdue" ? ' style="color:var(--berry);font-weight:600"' : '';
+    return (
+      '<div class="t-item">' +
+        '<div class="t-dot ' + dot + '"></div>' +
+        '<div class="t-date"' + overdueStyle + '>' + fmtDate(g.date) + '</div>' +
+        '<div class="t-group-items">' + g.items.map(renderChip).join("") + '</div>' +
+      '</div>'
+    );
+  }
+
+  function renderChip(e) {
     if (e.type === "task") {
       var checked = e.status === "Done";
+      var dot = entryDot(e);
       return (
-        '<div class="t-item"><div class="t-dot ' + dot + '"></div>' +
-        '<div class="t-date">' + fmtDate(e.date) + ' · Task</div>' +
-        '<div class="t-title' + (checked ? " done-text" : "") + '">' + esc(e.title) + '</div>' +
-        '<div class="t-meta">' +
+        '<div class="t-chip">' +
           '<div class="task-check' + (checked ? ' checked' : '') + '" data-toggle-entry="' + e.id + '" aria-label="Toggle done">' + (checked ? ICON_CHECK : '') + '</div>' +
+          '<span class="t-chip-type">Task</span>' +
+          '<span class="t-chip-title' + (checked ? " done-text" : "") + '">' + esc(e.title) + '</span>' +
           '<span class="pill ' + pillClass(e.owner) + '">' + e.owner + '</span>' +
           '<span class="status-tag status-' + dot + '">' + statusLabel(dot) + '</span>' +
           '<button class="icon-btn" data-del-entry="' + e.id + '" aria-label="Delete task">' + ICON_TRASH + '</button>' +
-        '</div>' +
         '</div>'
       );
     }
     if (e.type === "checklist") {
       var cChecked = e.status === "Done";
+      var cDot = entryDot(e);
       var showTag = cChecked || !!e.date;
       return (
-        '<div class="t-item"><div class="t-dot ' + dot + '"></div>' +
-        '<div class="t-date">' + fmtDate(e.date) + ' · Checklist</div>' +
-        '<div class="t-title' + (cChecked ? " done-text" : "") + '">' + esc(e.text) + '</div>' +
-        '<div class="t-meta">' +
+        '<div class="t-chip">' +
           '<div class="task-check' + (cChecked ? ' checked' : '') + '" data-toggle-entry="' + e.id + '" aria-label="Toggle done">' + (cChecked ? ICON_CHECK : '') + '</div>' +
+          '<span class="t-chip-type">Checklist</span>' +
+          '<span class="t-chip-title' + (cChecked ? " done-text" : "") + '">' + esc(e.text) + '</span>' +
           (e.owner ? '<span class="pill ' + pillClass(e.owner) + '">' + e.owner + '</span>' : '') +
-          (showTag ? '<span class="status-tag status-' + dot + '">' + statusLabel(dot) + '</span>' : '') +
+          (showTag ? '<span class="status-tag status-' + cDot + '">' + statusLabel(cDot) + '</span>' : '') +
           '<button class="icon-btn" data-del-entry="' + e.id + '" aria-label="Delete item">' + ICON_TRASH + '</button>' +
-        '</div>' +
         '</div>'
       );
     }
     // milestone
-    var overdueNotDone = dot === "overdue";
     return (
-      '<div class="t-item"><div class="t-dot ' + dot + '"></div>' +
-      '<div class="t-date"' + (overdueNotDone ? ' style="color:var(--berry);font-weight:600"' : '') + '>' + fmtDate(e.date) + ' · Phase ' + esc(e.phase) + '</div>' +
-      '<div class="t-title">' + esc(e.label) + '</div>' +
-      '<div class="t-meta">' +
+      '<div class="t-chip">' +
+        '<span class="t-chip-type">Phase ' + esc(e.phase) + '</span>' +
+        '<span class="t-chip-title">' + esc(e.label) + '</span>' +
         '<span class="status-tag ' + milestoneStatusClass(e.status) + '">' + esc(e.status) + '</span>' +
         '<select data-milestone-status="' + e.id + '" style="width:auto;font-size:11.5px;padding:3px 6px">' +
           MILESTONE_STATUSES.map(function (s) { return '<option value="' + s + '"' + (s === e.status ? " selected" : "") + '>' + s + '</option>'; }).join("") +
         '</select>' +
         '<button class="icon-btn" data-del-entry="' + e.id + '" aria-label="Delete milestone">' + ICON_TRASH + '</button>' +
-      '</div>' +
       '</div>'
     );
   }
@@ -851,7 +894,7 @@
     }).join("");
 
     return (
-      '<div class="view-head"><h2 class="display">Checklist</h2></div>' +
+      '<div class="view-head"><h2 class="display">Checklist</h2><p>Check things off — every change also shows up on the Timeline.</p></div>' +
       '<div class="checklist-card">' +
         (items.length === 0 ? '<div class="empty-state">No checklist items yet — add one below.</div>' : rows) +
       '</div>' +
@@ -878,6 +921,71 @@
     );
   }
 
+  /* ---------------- Notes ----------------
+     A running log, separate from the Timeline. Notes sharing the same
+     date are grouped under one date/dot too, same as the Timeline.
+  --------------------------------------------------------------------- */
+  function viewNotes() {
+    var notes = activeEntries().filter(function (e) { return e.type === "note"; })
+      .slice().sort(function (a, b) {
+        var da = (a.date || NO_DATE), db = (b.date || NO_DATE);
+        return da < db ? -1 : da > db ? 1 : 0;
+      });
+
+    var today = todayISO();
+    var groups = groupEntriesByDate(notes);
+    var rows = [];
+    var insertedToday = false;
+    groups.forEach(function (g) {
+      if (!insertedToday && (g.date || NO_DATE) >= today) {
+        rows.push(todayLineHTML(today));
+        insertedToday = true;
+      }
+      rows.push(renderNoteGroup(g));
+    });
+    if (!insertedToday) rows.push(todayLineHTML(today));
+
+    return (
+      '<div class="view-head"><h2 class="display">Notes</h2><p>A running log of updates, decisions, and context.</p></div>' +
+      renderNoteAddPanel() +
+      (notes.length === 0
+        ? '<div class="empty-state">No notes yet — add one above.</div>'
+        : '<div class="timeline">' + rows.join("") + '</div>')
+    );
+  }
+
+  function renderNoteGroup(g) {
+    return (
+      '<div class="t-item">' +
+        '<div class="t-dot note"></div>' +
+        '<div class="t-date">' + fmtDate(g.date) + '</div>' +
+        g.items.map(function (e) {
+          return (
+            '<div class="t-note-text">' + esc(e.text) + '</div>' +
+            '<div class="t-meta" style="margin-bottom:10px">' +
+              '<button class="icon-btn" data-del-entry="' + e.id + '" aria-label="Delete note">' + ICON_TRASH + '</button>' +
+            '</div>'
+          );
+        }).join("") +
+      '</div>'
+    );
+  }
+
+  function renderNoteAddPanel() {
+    return (
+      '<div class="form-panel">' +
+        '<h3>Add a note</h3>' +
+        '<form id="noteForm">' +
+          '<div class="form-grid">' +
+            '<div class="field"><label for="nDate">Date</label><input type="date" id="nDate" value="' + todayISO() + '" required></div>' +
+          '</div>' +
+          '<div class="field" style="margin-top:10px"><label for="nText">Note</label><textarea id="nText" placeholder="What happened, was decided, or needs follow-up…" required></textarea></div>' +
+          '<div class="form-actions"><button type="submit" class="btn btn-primary">Add</button></div>' +
+        '</form>' +
+      '</div>'
+    );
+  }
+
   /* ---------------- events ---------------- */
   function bindViewEvents() {
     // type toggle
@@ -898,18 +1006,14 @@
     var hideDoneToggle = document.getElementById("hideDoneToggle");
     if (hideDoneToggle) hideDoneToggle.addEventListener("change", function () { state._hideDone = hideDoneToggle.checked; render(); });
 
-    // add entry
+    // add entry (Timeline: task / checklist / milestone)
     var entryForm = document.getElementById("entryForm");
     if (entryForm) {
       entryForm.addEventListener("submit", function (ev) {
         ev.preventDefault();
-        var type = state._addType || "note";
+        var type = state._addType || "task";
         var entry = { id: uid(), type: type, updatedAt: Date.now() };
-        if (type === "note") {
-          entry.date = document.getElementById("eDate").value;
-          entry.text = document.getElementById("eText").value.trim();
-          if (!entry.text) return;
-        } else if (type === "task") {
+        if (type === "task") {
           entry.title = document.getElementById("eTitle").value.trim();
           if (!entry.title) return;
           entry.owner = document.getElementById("eOwner").value;
@@ -928,6 +1032,20 @@
           entry.date = document.getElementById("eDate").value || "";
           entry.status = "Not started";
         }
+        state.entries.push(entry);
+        persistEntries();
+        render();
+      });
+    }
+
+    // add entry (Notes tab)
+    var noteForm = document.getElementById("noteForm");
+    if (noteForm) {
+      noteForm.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var text = document.getElementById("nText").value.trim();
+        if (!text) return;
+        var entry = { id: uid(), type: "note", date: document.getElementById("nDate").value, text: text, updatedAt: Date.now() };
         state.entries.push(entry);
         persistEntries();
         render();
