@@ -1,3 +1,4 @@
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CjxjaXJjbGUgY3g9IjMyIiBjeT0iMzIiIHI9IjMwIiBmaWxsPSIjRkNFQkYxIj48L2NpcmNsZT4KPHBhdGggZD0iTTIsMzIgQTMwLDMwIDAgMCAxIDYyLDMyIFoiIGZpbGw9IiM0QTY2NDQiPjwvcGF0aD4KPHBhdGggZD0iTTIsMzIgQTMwLDMwIDAgMCAwIDYyLDMyIFoiIGZpbGw9IiNDNjZGODAiPjwvcGF0aD4KPHBhdGggZD0iTTQsMzIgUTE2LDI2IDMyLDMyIFQ2MCwzMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjRkNFQkYxIiBzdHJva2Utd2lkdGg9IjIiPjwvcGF0aD4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzM4NDgyRCIgc3Ryb2tlLXdpZHRoPSIyIj48L2NpcmNsZT4KPC9zdmc+Cg==">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -460,9 +461,9 @@
       <div>A · V · Y</div>
       <div class="sync-badge"><span class="sync-dot" id="syncDot"></span><span id="syncText">Checking sync…</span><button class="sync-refresh" id="refreshBtn" aria-label="Refresh now" title="Refresh now"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v6h6M20 20v-6h-6"/><path d="M5.5 15a8 8 0 0 0 13-3M18.5 9a8 8 0 0 0-13 3"/></svg></button></div>
       <div class="sidebar-tools">
-        <button type="button" class="sidebar-link-btn" id="exportBtn">⬇ Export backup</button>
-        <button type="button" class="sidebar-link-btn" id="trashBtn">🗑 Recently deleted</button>
-        <button type="button" class="sidebar-link-btn" id="shareBtn">🔗 Copy read-only link</button>
+        <button type="button" class="sidebar-link-btn" id="exportBtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 19h16"/></svg> Export backup</button>
+        <button type="button" class="sidebar-link-btn" id="trashBtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg> Recently deleted</button>
+        <button type="button" class="sidebar-link-btn" id="shareBtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15l6-6"/><path d="M11 5.5l1.5-1.5a3.5 3.5 0 0 1 5 5L16 10.5"/><path d="M13 18.5l-1.5 1.5a3.5 3.5 0 0 1-5-5L8 13.5"/></svg> Copy read-only link</button>
       </div>
     </div>
   </aside>
@@ -1063,7 +1064,7 @@
     nav.innerHTML = NAV_ITEMS.map(function (item) {
       return '<button class="nav-btn' + (state.view === item.id ? ' active' : '') + '" data-view="' + item.id + '">' +
         ICONS[item.id] + '<span class="label">' + item.label + '</span></button>';
-    }).join("") + (state._readOnly ? '<div style="font-size:10.5px;color:#D7DAB3;margin-top:8px;line-height:1.4;">📖 Read-only snapshot</div>' : '');
+    }).join("") + (state._readOnly ? '<div style="font-size:10.5px;color:#D7DAB3;margin-top:8px;line-height:1.4;display:flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5c2-1 5-1 8 1c3-2 6-2 8-1v13c-2-1-5-1-8 1c-3-2-6-2-8-1z"/><path d="M12 6v13"/></svg> Read-only snapshot</div>' : '');
     Array.prototype.forEach.call(nav.querySelectorAll(".nav-btn"), function (btn) {
       btn.addEventListener("click", function () {
         state.view = btn.getAttribute("data-view");
@@ -1075,7 +1076,7 @@
 
   function render() {
     var main = document.getElementById("main");
-    var banner = state._readOnly ? '<div class="readonly-banner">📖 You\'re viewing a shared read-only snapshot. Nothing you do here saves or syncs back.</div>' : '';
+    var banner = state._readOnly ? '<div class="readonly-banner"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M4 5c2-1 5-1 8 1c3-2 6-2 8-1v13c-2-1-5-1-8 1c-3-2-6-2-8-1z"/><path d="M12 6v13"/></svg> You\'re viewing a shared read-only snapshot. Nothing you do here saves or syncs back.</div>' : '';
     main.innerHTML = banner + (state.view === "timeline" ? viewTimeline() : state.view === "notes" ? viewNotes() : viewChecklist());
     bindViewEvents();
   }
